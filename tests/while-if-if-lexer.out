@@ -1,0 +1,101 @@
+Identifier: main | id: 14
+Identifier: var | id: 11
+Identifier: a | id: 15
+Symbol: , | id: 15
+Identifier: b | id: 16
+Symbol: , | id: 15
+Identifier: c | id: 17
+Symbol: ; | id: 14
+Symbol: { | id: 16
+Identifier: let | id: 1
+Identifier: a | id: 15
+Symbol: <- | id: 13
+Identifier: call | id: 2
+Identifier: InputNum | id: 18
+Symbol: ( | id: 7
+Symbol: ) | id: 8
+Symbol: ; | id: 14
+Identifier: let | id: 1
+Identifier: b | id: 16
+Symbol: <- | id: 13
+Identifier: call | id: 2
+Identifier: InputNum | id: 18
+Symbol: ( | id: 7
+Symbol: ) | id: 8
+Symbol: ; | id: 14
+Identifier: let | id: 1
+Identifier: c | id: 17
+Symbol: <- | id: 13
+Identifier: call | id: 2
+Identifier: InputNum | id: 18
+Symbol: ( | id: 7
+Symbol: ) | id: 8
+Symbol: ; | id: 14
+Identifier: while | id: 7
+Identifier: a | id: 15
+Symbol: < | id: 3
+Literal: 100
+
+Identifier: do | id: 8
+Identifier: if | id: 3
+Identifier: b | id: 16
+Symbol: < | id: 3
+Literal: 0
+
+Identifier: then | id: 4
+Identifier: let | id: 1
+Identifier: b | id: 16
+Symbol: <- | id: 13
+Identifier: b | id: 16
+Symbol: + | id: 9
+Literal: 1
+
+Symbol: ; | id: 14
+Identifier: if | id: 3
+Identifier: c | id: 17
+Symbol: < | id: 3
+Literal: 0
+
+Identifier: then | id: 4
+Identifier: let | id: 1
+Identifier: c | id: 17
+Symbol: <- | id: 13
+Identifier: c | id: 17
+Symbol: + | id: 9
+Literal: 1
+
+Symbol: ; | id: 14
+Identifier: fi | id: 6
+Symbol: ; | id: 14
+Identifier: fi | id: 6
+Symbol: ; | id: 14
+Identifier: let | id: 1
+Identifier: a | id: 15
+Symbol: <- | id: 13
+Identifier: a | id: 15
+Symbol: + | id: 9
+Literal: 1
+
+Symbol: ; | id: 14
+Identifier: od | id: 9
+Symbol: ; | id: 14
+Identifier: call | id: 2
+Identifier: OutputNum | id: 19
+Symbol: ( | id: 7
+Identifier: a | id: 15
+Symbol: ) | id: 8
+Symbol: ; | id: 14
+Identifier: call | id: 2
+Identifier: OutputNum | id: 19
+Symbol: ( | id: 7
+Identifier: b | id: 16
+Symbol: ) | id: 8
+Symbol: ; | id: 14
+Identifier: call | id: 2
+Identifier: OutputNum | id: 19
+Symbol: ( | id: 7
+Identifier: c | id: 17
+Symbol: ) | id: 8
+Symbol: ; | id: 14
+Symbol: } | id: 17
+Symbol: . | id: 18
