@@ -18,6 +18,7 @@ public class Lexer {
     private final Map<String, Integer> identifiersMappedToId = new HashMap<>();
 
     private final BufferedReader reader;
+    private boolean lookedAhead = false;        // manual 1 char lookahead. So reader.reset() can be used for token look ahead.
     private int currentChar;
 
     public Lexer(String fileName) {
@@ -33,7 +34,11 @@ public class Lexer {
 
     // RETURNS NEXT TOKEN IN INPUT SOURCE PROGRAM
     public Token next() throws IOException, TinySyntaxError {
-        this.currentChar = this.reader.read();
+        if (!this.lookedAhead) {
+            this.currentChar = this.reader.read();
+        } else {
+            this.lookedAhead = false;
+        }
         if (this.currentChar == -1) {
             return null;
         }
@@ -74,7 +79,6 @@ public class Lexer {
                     throw new TinySyntaxError("SYNTAX ERROR DETECTED: !" + (char)this.currentChar + " IS NOT A VALID SYMBOL");
                 }
             case '<':
-                this.reader.mark(1);    // one character lookahead. Marks current position, reset if token ends at this pos.
                 this.currentChar = this.reader.read();      // read next character
                 if (this.currentChar == '-') {
                     return new Token(Token.TokenType.SYMBOL, getSymbolID("<-"));
@@ -83,17 +87,16 @@ public class Lexer {
                     return new Token(Token.TokenType.SYMBOL, getSymbolID("<="));
                 }
                 else {
-                    this.reader.reset();    // reset back one character
+                    this.lookedAhead = true;
                     return new Token(Token.TokenType.SYMBOL, getSymbolID("<"));
                 }
             case '>':
-                this.reader.mark(1);
                 this.currentChar = this.reader.read();
                 if (this.currentChar == '=') {
                     return new Token(Token.TokenType.SYMBOL, getSymbolID(">="));
                 }
                 else {
-                    this.reader.reset();
+                    this.lookedAhead = true;
                     return new Token(Token.TokenType.SYMBOL, getSymbolID(">"));
                 }
         }
@@ -101,25 +104,23 @@ public class Lexer {
         if (isDigit(this.currentChar)) {
             int value = 0;
             do {
-                this.reader.mark(1);
                 value = value * 10 + (this.currentChar - 48);
             }
             while ( isDigit(this.currentChar = this.reader.read()) );
 
-            this.reader.reset();
+            this.lookedAhead = true;
             return new Token(Token.TokenType.LITERAL, value);
         }
         // CHECK IDENTIFIER
         else if (isLetter(this.currentChar)) {
             StringBuilder name = new StringBuilder();
             do {
-                this.reader.mark(1);
                 name.append((char)this.currentChar);
                 this.currentChar = this.reader.read();
             }
             while (isDigit(this.currentChar) || isLetter(this.currentChar));
 
-            this.reader.reset();
+            this.lookedAhead = true;
             if (getIdentifierID(name.toString()) == -1) {
                 int id = this.identifiersMappedToId.size()+1;
                 this.identifiersMappedToId.put(name.toString(), id);
@@ -135,6 +136,27 @@ public class Lexer {
         else {
             throw new TinySyntaxError("Tiny Syntax Error!");
         }
+    }
+
+    public Token peek() {
+        try {
+            this.reader.mark(26);
+            boolean saveLookedAhead = this.lookedAhead;
+            int saveCurrentChar = this.currentChar;
+
+            Token res = next();
+            this.reader.reset();
+            // restore all states after reset bufferedReader.
+            this.lookedAhead = saveLookedAhead;
+            this.currentChar = saveCurrentChar;
+            return res;
+        }
+        catch (IOException e) {
+            System.out.println("IO error");
+        } catch (TinySyntaxError e) {
+            System.out.println("tiny syntax error");
+        }
+        return null;
     }
 
     public int getSymbolID(String symbol) {
@@ -221,16 +243,19 @@ public class Lexer {
 
 
     public static void main(String[] args) {
-//        try {
-//            Lexer lexer = new Lexer("tests/while-if-if.tiny");
-//            Token next;
-//            while ((next = lexer.next()) != null) {
-//                System.out.println(lexer.debugToken(next));
-//            }
-//        } catch (IOException e) {
-//            System.out.println("IO error");
-//        } catch (TinySyntaxError e) {
-//            System.out.println("tiny syntax error");
-//        }
+        try {
+            Lexer lexer = new Lexer("tests/while-if-if.tiny");
+            Token next;
+            while ((next = lexer.peek()) != null) {
+                next = lexer.peek();
+                next = lexer.peek();
+                lexer.next();
+                System.out.println(lexer.debugToken(next));
+            }
+        } catch (IOException e) {
+            System.out.println("IO error");
+        } catch (TinySyntaxError e) {
+            System.out.println("tiny syntax error");
+        }
     }
 }

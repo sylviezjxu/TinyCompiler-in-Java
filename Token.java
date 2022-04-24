@@ -18,12 +18,17 @@ public class Token {
         this.value = value;
     }
 
+    public int getId() {
+        return this.value;
+    }
+
     public boolean isSymbol() {
         return this.tokenType.compareTo(TokenType.SYMBOL) == 0;
     }
 
     public boolean isIdentifier() {
-        return this.tokenType.compareTo(TokenType.IDENTIFIER) == 0;
+        return this.tokenType.compareTo(TokenType.IDENTIFIER) == 0 &&
+                this.value >= 1 && this.value <= 14;
     }
 
     public boolean isLiteral() {
