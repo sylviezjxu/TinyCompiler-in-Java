@@ -26,13 +26,18 @@ public class Token {
         return this.tokenType.compareTo(TokenType.SYMBOL) == 0;
     }
 
-    public boolean isIdentifier() {
+    public boolean isUserDefinedIdentifier() {
         return this.tokenType.compareTo(TokenType.IDENTIFIER) == 0 &&
-                this.value >= 1 && this.value <= 14;
+                this.value > 14;
     }
 
     public boolean isLiteral() {
         return this.tokenType.compareTo(TokenType.LITERAL) == 0;
+    }
+
+    public boolean isRelationalOp() {
+        return this.tokenType.compareTo(TokenType.SYMBOL) == 0 &&
+                this.value >= 1 && this.value <= 6;
     }
 
     public static void main(String[] args) {

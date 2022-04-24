@@ -1,0 +1,127 @@
+computation
+variable declaration
+variable declared: Identifier: a | id: 15
+variable declared: Identifier: b | id: 16
+variable declared: Identifier: c | id: 17
+statement sequence
+statement
+assignment
+variable assigned: Identifier: a | id: 15
+expression
+term
+factor
+Non-void function call
+function call
+statement
+assignment
+variable assigned: Identifier: b | id: 16
+expression
+term
+factor
+Non-void function call
+function call
+statement
+assignment
+variable assigned: Identifier: c | id: 17
+expression
+term
+factor
+Non-void function call
+function call
+statement
+while statement
+relation
+expression
+term
+factor
+variable reference: Identifier: a | id: 15
+relational comparison: Symbol: < | id: 3
+expression
+term
+factor
+numberLiteral: 100
+
+statement sequence
+statement
+if statement
+relation
+expression
+term
+factor
+variable reference: Identifier: b | id: 16
+relational comparison: Symbol: < | id: 3
+expression
+term
+factor
+numberLiteral: 0
+
+statement sequence
+statement
+assignment
+variable assigned: Identifier: b | id: 16
+expression
+term
+factor
+variable reference: Identifier: b | id: 16
+term
+factor
+numberLiteral: 1
+
+statement
+if statement
+relation
+expression
+term
+factor
+variable reference: Identifier: c | id: 17
+relational comparison: Symbol: < | id: 3
+expression
+term
+factor
+numberLiteral: 0
+
+statement sequence
+statement
+assignment
+variable assigned: Identifier: c | id: 17
+expression
+term
+factor
+variable reference: Identifier: c | id: 17
+term
+factor
+numberLiteral: 1
+
+statement
+assignment
+variable assigned: Identifier: a | id: 15
+expression
+term
+factor
+variable reference: Identifier: a | id: 15
+term
+factor
+numberLiteral: 1
+
+statement
+void function call
+function call
+expression
+term
+factor
+variable reference: Identifier: a | id: 15
+statement
+void function call
+function call
+expression
+term
+factor
+variable reference: Identifier: b | id: 16
+statement
+void function call
+function call
+expression
+term
+factor
+variable reference: Identifier: c | id: 17
+DONE PARSING!
