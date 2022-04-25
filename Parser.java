@@ -1,13 +1,17 @@
+import IR.SSAIR;
 import errors.TinySyntaxError;
 
 import java.io.IOException;
 
+/** A recursive descent parser based on EBNF for tiny. SSA IR is generated while parsing. */
 public class Parser {
 
     private final Lexer lexer;
+    private final SSAIR IR;
 
     public Parser(Lexer lexer) {
         this.lexer = lexer;
+        this.IR = new SSAIR();
         computation();
     }
 

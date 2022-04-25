@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** NOTES: Lexer class parses input source program char by char
- *         calling .next() on Lexer object outputs the next Token object in the source program
+ *         calling .peek() returns the next token WITHOUT consuming it, calling .next() consumes the next token
  *         Identifier and Symbol names/string representations are entirely contained within the Lexer class.
  *         Output Tokens are identified by an int ID in the symbol/identifier table inside the Lexer.
  *      **/
