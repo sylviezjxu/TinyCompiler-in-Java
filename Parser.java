@@ -28,7 +28,6 @@ public class Parser {
         if (value == null) {
             warning( String.format("variable %s is referenced but never initialized.",
                      lexer.getIdentiferName(var.getIdValue())) );
-
         }
         return value;
     }
@@ -165,10 +164,17 @@ public class Parser {
         System.out.println("if statement");
         next();     // consumes "if"
         relation();
+        // BasicBlock current = IR.enterIf() -- generate join block and then block for current block and returns it
+            // connect join block to if block for now
         next();     // consumes "then"
+        // IR.setCurrentBlock(current.getFallThrough) -- instrs now get added to fallThrough block
+            //
         statementSequence();
         if (checkIfTokenIs(peek(), "else")) {
             next();
+            // IR.setCurrentBlock(current) -- set back to ifBlock
+            // IR.addBranchBlock() -- adds branch block (else) to current block
+            // IR.setCurrentBlock(current.getBranch) -- instrs now get added to else block
             statementSequence();
         }
         next();     // consumes "fi"
