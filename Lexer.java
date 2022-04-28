@@ -167,6 +167,15 @@ public class Lexer {
         return this.identifiersMappedToId.getOrDefault(keyword, -1);
     }
 
+    public String getIdentiferName(int id) {
+        for (Map.Entry<String, Integer> set : this.identifiersMappedToId.entrySet()) {
+            if (set.getValue() == id) {
+                return set.getKey();
+            }
+        }
+        return null;
+    }
+
     private boolean isDigit(int c) {
         return c >= 48 && c <= 57;
     }
@@ -218,6 +227,7 @@ public class Lexer {
         this.identifiersMappedToId.put("function", id++);   // 13
         this.identifiersMappedToId.put("main", id);
     }
+
 
     // FOR DEBUGGING PURPOSES ONLY
     public String debugToken(Token token) {

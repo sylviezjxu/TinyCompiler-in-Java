@@ -1,12 +1,11 @@
-package IR;
+package IR.Instruction;
 
 public class Instruction
 {
-    OP opType;
-    Instruction op1;
-    Instruction op2;
+    private final OP opType;
 
     public enum OP {
+        CONST,
         NEG, ADD, SUB, MUL, DIV,
         CMP, LOAD, STORE,
         PHI,
@@ -14,4 +13,9 @@ public class Instruction
         BLE, BLT, BGE, BGT,
         READ, WRITE, WRITENL
     }
+
+    public Instruction(OP opType) {
+        this.opType = opType;
+    }
+
 }

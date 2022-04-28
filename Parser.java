@@ -1,7 +1,11 @@
+import IR.BasicBlock;
+import IR.Instruction.Instruction;
+import IR.Instruction.OpInstruction;
 import IR.SSAIR;
 import errors.TinySyntaxError;
 
 import java.io.IOException;
+import java.util.LinkedList;
 
 /** A recursive descent parser based on EBNF for tiny. SSA IR is generated while parsing. */
 public class Parser {
@@ -15,55 +19,89 @@ public class Parser {
         computation();
     }
 
-    public void variableReference() {
+    /** returns the Instruction that is mapped to the variable */
+    public Instruction variableReference() {
         System.out.println("variable reference: " + this.lexer.debugToken(peek()));
-        next();
+        Token var = next();
+        Instruction value = IR.getIdentifierInstruction(var.getIdValue());
+        // check if value has been declared/assigned a value
+        if (value == null) {
+            warning( String.format("variable %s is referenced but never initialized.",
+                     lexer.getIdentiferName(var.getIdValue())) );
+
+        }
+        return value;
     }
 
-    public void number() {
+    /** returns the Instruction that represents the value of the literal */
+    public Instruction number() {
         System.out.println("number" + this.lexer.debugToken(peek()));
-        next();
+        Token var = next();
+        return IR.addConstant(var.getIdValue());
     }
 
-    public void factor() {
+    /** factor() returns the Instruction that represents the value of the var/constant/expression/function call */
+    public Instruction factor() {
         System.out.println("factor");
+        Instruction res;
         Token peek = peek();
         if (peek.isUserDefinedIdentifier()) {
-            variableReference();
+            res = variableReference();
         }
         else if (peek.isLiteral()) {
-            number();
+            res = number();
         }
         else if (checkIfTokenIs(peek, "(")) {
-            next();
-            expression();
-            if (checkIfTokenIs(peek(), ")")) {
-                next();
-            } else {
-                error("Factor expression missing ')'");
-            }
+            next();     // consumes "("
+            res = expression();
+            next();     // consumes ")"
         }
         else if (checkIfTokenIs(peek, "call")) {
-            nonVoidFunctionCall();
+            res = nonVoidFunctionCall();        // returns null rn
+        } else {
+            res = null;
         }
+        return res;
     }
 
-    public void term() {
+    /** returns the Instruction that represents the value of the term */
+    public Instruction term() {
         System.out.println("term");
-        factor();
+        Instruction op1, op2, res = null;
+        op1 = res = factor();
         while (checkIfTokenIs(peek(), "*") || checkIfTokenIs(peek(), "/") ) {
-            next();
-            factor();
+            Token sym = next();
+            op2 = factor();
+            if (checkIfTokenIs(sym, "*")) {
+                res = new OpInstruction(Instruction.OP.MUL, op1, op2);
+                IR.insertInstruction(res);
+            } else {
+                res = new OpInstruction(Instruction.OP.DIV, op1, op2);
+                IR.insertInstruction(res);
+            }
+            op1 = res;
         }
+        return res;
     }
 
-    public void expression() {
+    /** expression() returns the Instruction object that is the value of the expressionn */
+    public Instruction expression() {
         System.out.println("expression");
-        term();
+        Instruction op1, op2, res = null;
+        op1 = res = term();
         while (checkIfTokenIs(peek(), "+") || checkIfTokenIs(peek(), "-") ) {
-            next();
-            term();
+            Token sym = next();
+            op2 = term();
+            if (checkIfTokenIs(sym, "+")) {
+                res = new OpInstruction(Instruction.OP.ADD, op1, op2);
+                IR.insertInstruction(res);
+            } else {
+                res = new OpInstruction(Instruction.OP.SUB, op1, op2);
+                IR.insertInstruction(res);
+            }
+            op1 = res;
         }
+        return res;
     }
 
     public void relation() {
@@ -85,16 +123,16 @@ public class Parser {
             Token var = next();     // consumes identifier
             next();     // consumes "<-"
             System.out.println("variable assigned: " + lexer.debugToken(var));
-            expression();
         }
         else {
             error("assignment does not start with 'let'");
         }
     }
 
-    public void nonVoidFunctionCall() {
+    public Instruction nonVoidFunctionCall() {
         System.out.println("Non-void function call");
         functionCall();
+        return null;
     }
 
     public void voidFunctionCall() {
@@ -195,6 +233,7 @@ public class Parser {
         while (checkIfTokenIs(peek(), ",")) {
             next();     // consumes ","
             var = next();     // consumes identifier
+            IR.addVarDecl(var.getIdValue());     // add identifier id to symbol table
             System.out.println("variable declared: " + lexer.debugToken(var));
         }
         next();     // consumes ';'
@@ -244,6 +283,7 @@ public class Parser {
     public void computation() {
         System.out.println("computation");
         next();     // consumes "main"
+        IR.generateFallThruBlock(BasicBlock.BlockType.BASIC);      // generate new block for varDecl (linear, no branches)
         while (checkIfTokenIs(peek(), "var")) {
             variableDeclaration();
         }
@@ -265,7 +305,7 @@ public class Parser {
     }
 
     private boolean checkIfTokenIs(Token token, String sym) {
-        return token.getId() == this.lexer.getIdentifierID(sym) || token.getId() == this.lexer.getSymbolID(sym);
+        return token.getIdValue() == this.lexer.getIdentifierID(sym) || token.getIdValue() == this.lexer.getSymbolID(sym);
     }
 
     private Token peek() {      // looks at next token without consuming. Null at EOF.
@@ -285,6 +325,10 @@ public class Parser {
 
     private void error(String message) {
         System.out.println("SYNTAX ERROR: " + message);
+    }
+
+    private void warning(String message) {
+        System.out.println("COMPILE WARNING: " + message);
     }
 
     public static void main(String[] args) {

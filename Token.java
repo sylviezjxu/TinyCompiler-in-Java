@@ -18,7 +18,7 @@ public class Token {
         this.value = value;
     }
 
-    public int getId() {
+    public int getIdValue() {
         return this.value;
     }
 
