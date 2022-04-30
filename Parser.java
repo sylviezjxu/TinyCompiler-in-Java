@@ -121,6 +121,7 @@ public class Parser {
             next();     // consumes "let"
             Token var = next();     // consumes identifier
             next();     // consumes "<-"
+            expression();
             System.out.println("variable assigned: " + lexer.debugToken(var));
         }
         else {
