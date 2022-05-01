@@ -178,16 +178,19 @@ public class Parser {
             statementSequence();
         }
         next();     // consumes "fi"
+        IR.setCurrentBlock(IR.findJoinBlock());             // set current to current's join
     }
 
     public void whileStatement() {
         System.out.println("while statement");
         next();     // consumes "while"
-        IR.enterWhile();
+        BasicBlock current = IR.enterWhile();
         relation();
         next();     // consumes "do"
+        IR.setCurrentBlock(current.getFallThruTo());        // current = while-body
         statementSequence();
         next();     // consumes "od"
+        IR.setCurrentBlock(current.getBranchTo());          // current = while-follow
     }
 
     public void returnStatement() {
@@ -340,7 +343,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/while-if-if.tiny");
+        Lexer lexer = new Lexer("tests/if-if-unnested.tiny");
         Parser parser = new Parser(lexer);
     }
 

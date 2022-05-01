@@ -15,13 +15,13 @@ public class SSAIR
     /** initialize headBlock to empty block used to store constants. */
     public SSAIR() {
         instrInGeneratedOrder = new ArrayList<>();
-        headBlock = new BasicBlock(BasicBlock.blockIdCounter++, BasicBlock.BlockType.BASIC);     // headBlock stores constants
+        headBlock = new BasicBlock(BasicBlock.BlockType.BASIC);     // headBlock stores constants
         currentBlock = headBlock;
     }
 
     public void generateFallThruBlock(BasicBlock.BlockType blockType) {
         // generates new block, pointed to by currentBlock. Set currentBlock to new block.
-        BasicBlock newBlock = new BasicBlock(BasicBlock.blockIdCounter++, blockType);
+        BasicBlock newBlock = new BasicBlock(blockType);
         currentBlock.addDoubleLinkedFallThruTo(newBlock);
         currentBlock = currentBlock.getFallThruTo();      // since it's just single path fallthru, advance currentblock to fallthru
     }
@@ -59,23 +59,23 @@ public class SSAIR
     {
         BasicBlock outerJoin, newJoin, newThenBlock;
         // for nested-if inside while: new join branches back to while-join
-        if (currentBlock.getFallThruFrom().getBlockType() == BasicBlock.BlockType.WHILE) {
+        if (currentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE)) {
             outerJoin = currentBlock.getBranchTo();
-            newJoin = new BasicBlock(BasicBlock.blockIdCounter++, BasicBlock.BlockType.IF_JOIN);
+            newJoin = new BasicBlock(BasicBlock.BlockType.IF_JOIN);
             newJoin.addDoubleLinkedBranchTo(outerJoin);
             newJoin.addDoubleLinkedBranchFrom(currentBlock);
         } else {
             outerJoin = currentBlock.getFallThruTo();   // save outer join block (null if not nested)
-            newJoin = new BasicBlock(BasicBlock.blockIdCounter++, BasicBlock.BlockType.IF_JOIN);
+            newJoin = new BasicBlock(BasicBlock.BlockType.IF_JOIN);
             newJoin.addDoubleLinkedFallThruTo(outerJoin);
             newJoin.addDoubleLinkedBranchFrom(currentBlock);
         }
-        newThenBlock = new BasicBlock(BasicBlock.blockIdCounter++, BasicBlock.BlockType.IF_THEN);
+        newThenBlock = new BasicBlock(BasicBlock.BlockType.IF_THEN);
         newThenBlock.addDoubleLinkedFallThruTo(newJoin);
         newThenBlock.addDoubleLinkedFallThruFrom(currentBlock);
         newJoin.addDoubleLinkedFallThruFrom(newThenBlock);
 
-        currentBlock.setBlockType(BasicBlock.BlockType.IF);
+        currentBlock.addBlockType(BasicBlock.BlockType.IF);
         return currentBlock;
     }
 
@@ -88,20 +88,45 @@ public class SSAIR
         join.deleteFallThruWithParent(innerJoin);       // delete fallThru between outerJoin <-> innerJoin
         innerJoin.addDoubleLinkedBranchTo(join);
         // else block branches from current if-block, falls through to join block
-        BasicBlock newElse = new BasicBlock(BasicBlock.blockIdCounter++, BasicBlock.BlockType.IF_ELSE);
+        BasicBlock newElse = new BasicBlock(BasicBlock.BlockType.IF_ELSE);
         newElse.addDoubleLinkedBranchFrom(currentBlock);
         newElse.addDoubleLinkedFallThruTo(join);
+    }
+
+    public BasicBlock findJoinBlock() {
+        return currentBlock.getFallThruTo();
     }
 
     /** generate WHILE-CFG. condition gets it own block (since it's also the join block), body and follow blocks are
      *  both generated here. */
     public BasicBlock enterWhile() {
+        // save outer block if outer is a while block, save join block if nested in if
+        BasicBlock saveOuter = currentBlock.getFallThruFrom();
+        BasicBlock saveJoin = currentBlock.getFallThruTo();
+        // kill loop branch if nested in while
+        boolean nestedInWhile = saveOuter.isBlockType(BasicBlock.BlockType.WHILE);
+        if (nestedInWhile) {
+            currentBlock.deleteBranchWithParent(currentBlock.getBranchFrom());
+        }
+        // while cmp needs to be in its own block for phi generation
         if (!currentBlock.isEmpty()) {                         // if current is empty, no need to generate new block
             generateFallThruBlock(BasicBlock.BlockType.WHILE);      // currentBlock is now the WHILE-Block
+        } else {
+            currentBlock.addBlockType(BasicBlock.BlockType.WHILE);  // currentBlock is now of BlockType WHILE
         }
-
-
-        return null;
+        // generate and link while body
+        BasicBlock whileBody = new BasicBlock(BasicBlock.BlockType.WHILE_BODY);
+        whileBody.addDoubleLinkedFallThruFrom(currentBlock);
+        whileBody.addDoubleLinkedBranchTo(currentBlock);
+        // generate and link while follow
+        BasicBlock whileFollow = new BasicBlock(BasicBlock.BlockType.WHILE_FOLLOW);
+        whileFollow.addDoubleLinkedBranchFrom(currentBlock);
+        if (nestedInWhile) {
+            whileFollow.addDoubleLinkedBranchTo(saveOuter);
+        } else {
+            whileFollow.addDoubleLinkedFallThruTo(saveJoin);
+        }
+        return currentBlock;
     }
 
     /** FOR DEBUGGING PURPOSES ONLY */

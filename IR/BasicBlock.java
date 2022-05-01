@@ -6,6 +6,7 @@ import IR.Instruction.OpInstruction;
 import javax.sound.midi.SysexMessage;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 
 /**  */
@@ -15,7 +16,7 @@ public class BasicBlock
     public static ArrayList<BasicBlock> allBlocks = new ArrayList<>();
 
     private final int blockId;
-    private BlockType blockType;
+    private HashSet<BlockType> blockTypes = new HashSet<>();
     private BasicBlock fallThruTo;
     private BasicBlock branchTo;
     private BasicBlock fallThruFrom;
@@ -31,9 +32,9 @@ public class BasicBlock
         WHILE, WHILE_BODY, WHILE_FOLLOW
     }
 
-    public BasicBlock(int id, BlockType blockType) {
-        this.blockId = id;
-        this.blockType = blockType;
+    public BasicBlock(BlockType blockType) {
+        this.blockId = BasicBlock.blockIdCounter++;
+        this.blockTypes.add(blockType);
 
         this.instructions = new LinkedList<>();
         this.identifierMappedToInstruction = new HashMap<>();
@@ -46,20 +47,16 @@ public class BasicBlock
         return blockId;
     }
 
-    public BlockType getBlockType() {
-        return blockType;
+    public boolean isBlockType(BlockType blockType) {
+        return this.blockTypes.contains(blockType);
     }
 
-    public void setBlockType(BlockType blockType) {
-        this.blockType = blockType;
+    public void addBlockType(BlockType blockType) {
+        this.blockTypes.add(blockType);
     }
 
     public BasicBlock getFallThruTo() {
         return fallThruTo;
-    }
-
-    public void setFallThruTo(BasicBlock fallThruTo) {
-        this.fallThruTo = fallThruTo;
     }
 
     public BasicBlock getBranchTo() {
@@ -114,6 +111,13 @@ public class BasicBlock
         if (fallThruParent != null) {
             this.fallThruFrom = null;
             fallThruParent.fallThruTo = null;
+        }
+    }
+
+    public void deleteBranchWithParent(BasicBlock branchParent) {
+        if (branchParent != null) {
+            this.branchFrom = null;
+            branchParent.branchTo = null;
         }
     }
 
