@@ -343,7 +343,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/if-if-unnested.tiny");
+        Lexer lexer = new Lexer("tests/while-if-if.tiny");
         Parser parser = new Parser(lexer);
     }
 

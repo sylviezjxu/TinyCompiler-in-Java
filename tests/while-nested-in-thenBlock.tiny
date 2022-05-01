@@ -5,17 +5,15 @@ var a, b, c;
     let b <- call InputNum();
     let c <- call InputNum();
 
-	while a < 100 do
-		if b < 0
-		then
-			let b <- b + 1;
-			if c < 0
-			then
-				let c <- c + 1;
-			fi;
-		fi;
-		let a <- a + 1;
-	od;
+    if c < 0 then
+        let c <- c + 1;
+        let a <- a + 2;
+        while a < 100 do
+            let b <- b + 1;
+        od;
+    else
+        let a <- a + 99;
+    fi;
 
 	call OutputNum(a);
 	call OutputNum(b);

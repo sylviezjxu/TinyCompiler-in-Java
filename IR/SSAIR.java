@@ -59,21 +59,23 @@ public class SSAIR
     {
         BasicBlock outerJoin, newJoin, newThenBlock;
         // for nested-if inside while: new join branches back to while-join
-        if (currentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE)) {
+        if (currentBlock.getFallThruFrom() != null && currentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE)) {
             outerJoin = currentBlock.getBranchTo();
             newJoin = new BasicBlock(BasicBlock.BlockType.IF_JOIN);
             newJoin.addDoubleLinkedBranchTo(outerJoin);
             newJoin.addDoubleLinkedBranchFrom(currentBlock);
         } else {
+            // for all other cases: nested in if-then, nested in if-else, un-nested
+            // when entering IF, the current block ALWAYS has a fallsThru relationship w the outer join if it exists
             outerJoin = currentBlock.getFallThruTo();   // save outer join block (null if not nested)
             newJoin = new BasicBlock(BasicBlock.BlockType.IF_JOIN);
             newJoin.addDoubleLinkedFallThruTo(outerJoin);
             newJoin.addDoubleLinkedBranchFrom(currentBlock);
         }
+        // then block connects the same way for all cases
         newThenBlock = new BasicBlock(BasicBlock.BlockType.IF_THEN);
         newThenBlock.addDoubleLinkedFallThruTo(newJoin);
         newThenBlock.addDoubleLinkedFallThruFrom(currentBlock);
-        newJoin.addDoubleLinkedFallThruFrom(newThenBlock);
 
         currentBlock.addBlockType(BasicBlock.BlockType.IF);
         return currentBlock;
@@ -84,7 +86,7 @@ public class SSAIR
     public void generateElseBlock() {
         BasicBlock join = this.currentBlock.getBranchTo();   // save join block
         // change then->join to branch
-        BasicBlock innerJoin = join.getFallThruFrom();       // save inner-join block
+        BasicBlock innerJoin = join.getFallThruFrom();       // save then block or join-block inside then-block
         join.deleteFallThruWithParent(innerJoin);       // delete fallThru between outerJoin <-> innerJoin
         innerJoin.addDoubleLinkedBranchTo(join);
         // else block branches from current if-block, falls through to join block
@@ -103,10 +105,10 @@ public class SSAIR
         // save outer block if outer is a while block, save join block if nested in if
         BasicBlock saveOuter = currentBlock.getFallThruFrom();
         BasicBlock saveJoin = currentBlock.getFallThruTo();
+        boolean nestedInWhile = saveOuter != null && saveOuter.isBlockType(BasicBlock.BlockType.WHILE);
         // kill loop branch if nested in while
-        boolean nestedInWhile = saveOuter.isBlockType(BasicBlock.BlockType.WHILE);
         if (nestedInWhile) {
-            currentBlock.deleteBranchWithParent(currentBlock.getBranchFrom());
+            currentBlock.deleteBranchWithParent(saveOuter);
         }
         // while cmp needs to be in its own block for phi generation
         if (!currentBlock.isEmpty()) {                         // if current is empty, no need to generate new block

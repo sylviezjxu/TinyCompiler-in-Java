@@ -48,6 +48,7 @@ public class BasicBlock
     }
 
     public boolean isBlockType(BlockType blockType) {
+        System.out.printf("bb%d has blocktypes %s\n", this.getBlockId(), blockTypes.toString());
         return this.blockTypes.contains(blockType);
     }
 
@@ -116,8 +117,9 @@ public class BasicBlock
 
     public void deleteBranchWithParent(BasicBlock branchParent) {
         if (branchParent != null) {
-            this.branchFrom = null;
-            branchParent.branchTo = null;
+            this.branchTo = null;
+            System.out.printf("---------bb%d's branch to bb%d deleted----------\n", this.getBlockId(), branchParent.getBlockId());
+            branchParent.branchFrom = null;
         }
     }
 
