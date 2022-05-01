@@ -2,6 +2,8 @@ package IR.Instruction;
 
 public class Instruction
 {
+    public static int idCounter = 1;
+    private final int id;
     private final OP opType;
 
     public enum OP {
@@ -14,8 +16,16 @@ public class Instruction
         READ, WRITE, WRITENL
     }
 
-    public Instruction(OP opType) {
+    public Instruction(int id, OP opType) {
+        this.id = id;
         this.opType = opType;
     }
 
+    public int getId() {
+        return id;
+    }
+
+    public OP getOpType() {
+        return opType;
+    }
 }

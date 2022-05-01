@@ -5,7 +5,6 @@ import IR.SSAIR;
 import errors.TinySyntaxError;
 
 import java.io.IOException;
-import java.util.LinkedList;
 
 /** A recursive descent parser based on EBNF for tiny. SSA IR is generated while parsing. */
 public class Parser {
@@ -36,6 +35,7 @@ public class Parser {
     public Instruction number() {
         System.out.println("number" + this.lexer.debugToken(peek()));
         Token var = next();
+        // check if constant exists already!
         return IR.addConstant(var.getIdValue());
     }
 
@@ -72,10 +72,10 @@ public class Parser {
             Token sym = next();
             op2 = factor();
             if (checkIfTokenIs(sym, "*")) {
-                res = new OpInstruction(Instruction.OP.MUL, op1, op2);
+                res = new OpInstruction(Instruction.idCounter++, Instruction.OP.MUL, op1, op2);
                 IR.insertInstruction(res);
             } else {
-                res = new OpInstruction(Instruction.OP.DIV, op1, op2);
+                res = new OpInstruction(Instruction.idCounter++, Instruction.OP.DIV, op1, op2);
                 IR.insertInstruction(res);
             }
             op1 = res;
@@ -92,10 +92,10 @@ public class Parser {
             Token sym = next();
             op2 = term();
             if (checkIfTokenIs(sym, "+")) {
-                res = new OpInstruction(Instruction.OP.ADD, op1, op2);
+                res = new OpInstruction(Instruction.idCounter++, Instruction.OP.ADD, op1, op2);
                 IR.insertInstruction(res);
             } else {
-                res = new OpInstruction(Instruction.OP.SUB, op1, op2);
+                res = new OpInstruction(Instruction.idCounter++, Instruction.OP.SUB, op1, op2);
                 IR.insertInstruction(res);
             }
             op1 = res;
@@ -121,6 +121,7 @@ public class Parser {
             next();     // consumes "let"
             Token var = next();     // consumes identifier
             next();     // consumes "<-"
+            expression();
             System.out.println("variable assigned: " + lexer.debugToken(var));
         }
         else {
@@ -164,17 +165,16 @@ public class Parser {
         System.out.println("if statement");
         next();     // consumes "if"
         relation();
-        // BasicBlock current = IR.enterIf() -- generate join block and then block for current block and returns it
-            // connect join block to if block for now
         next();     // consumes "then"
-        // IR.setCurrentBlock(current.getFallThrough) -- instrs now get added to fallThrough block
-            //
+        BasicBlock current = IR.enterIf();
+        IR.setCurrentBlock(current.getFallThruTo());      // set current to current's then-block
         statementSequence();
         if (checkIfTokenIs(peek(), "else")) {
+            System.out.println("else");
             next();
-            // IR.setCurrentBlock(current) -- set back to ifBlock
-            // IR.addBranchBlock() -- adds branch block (else) to current block
-            // IR.setCurrentBlock(current.getBranch) -- instrs now get added to else block
+            IR.setCurrentBlock(current);
+            IR.generateElseBlock();
+            IR.setCurrentBlock(current.getBranchTo());       // set current to current's else-block
             statementSequence();
         }
         next();     // consumes "fi"
@@ -183,6 +183,7 @@ public class Parser {
     public void whileStatement() {
         System.out.println("while statement");
         next();     // consumes "while"
+        IR.enterWhile();
         relation();
         next();     // consumes "do"
         statementSequence();
@@ -303,6 +304,7 @@ public class Parser {
         if (peek() == null) {
             System.out.println("DONE PARSING!");
         }
+        IR.printCFG();
     }
 
     // ------------ HELPER FUNCTIONS ------------- //
