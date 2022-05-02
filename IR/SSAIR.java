@@ -12,18 +12,23 @@ import java.util.Objects;
 /** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation. */
 public class SSAIR
 {
-    private ArrayList<Instruction> instrInGeneratedOrder;
+    private ArrayList<Instruction> instrInGeneratedOrder;  // <- for propogating phi's in while CFG
     private final BasicBlock headBlock;
     private BasicBlock currentBlock;
 
     /** initialize headBlock to empty block used to store constants. */
     public SSAIR() {
-        instrInGeneratedOrder = new ArrayList<>();
+        instrInGeneratedOrder = new ArrayList<Instruction>();
+        instrInGeneratedOrder.add(null);
         headBlock = new BasicBlock(BasicBlock.BlockType.BASIC);     // headBlock stores constants
         currentBlock = headBlock;
     }
 
             // ------------------------- CFG GENERATION METHODS --------------------------- //
+
+    public BasicBlock getCurrentBlock() {
+        return currentBlock;
+    }
 
     /** sets currentBlock to target block. Used to set up CFG to generate instructions in the right blocks */
     public void setCurrentBlock(BasicBlock target) {
@@ -98,6 +103,7 @@ public class SSAIR
         // while cmp needs to be in its own block for phi generation
         if (!currentBlock.isEmpty()) {                         // if current is empty, no need to generate new block
             generateFallThruBlock(BasicBlock.BlockType.WHILE);      // currentBlock is now the WHILE-Block
+            currentBlock.updateSymbolTableFromParent(currentBlock.getFallThruFrom());   // whileBlock should have complete symbol table
         } else {
             currentBlock.addBlockType(BasicBlock.BlockType.WHILE);  // currentBlock is now of BlockType WHILE
         }
@@ -127,24 +133,37 @@ public class SSAIR
         }
         Instruction res = new ConstantInstruction(c);
         headBlock.insertInstruction(res);
+        instrInGeneratedOrder.add(res);
         return res;
     }
 
-    /** add variable declaration to current block's symbol table and initialize to null */
+    /** add variable declaration to current block's symbol table and initialize to null
+     *  since all variables are declared before statementSequence, all declarations get added
+     *  to BB2 (headblock's fallThruTo) */
     public void addVarDecl(int id) {
         currentBlock.addVarDecl(id);
-    }
-
-    /** given identifier id, returns Instruction value from current block */
-    public Instruction getIdentifierInstruction(int id) {
-        // have to change later, once i decide how to manage symbol table...
-        return currentBlock.getIdentifierInstruction(id);
     }
 
     /** inserts Instruction into the current block and into list of instrInGeneratedOrder */
     public void insertInstrToCurrentBlock(Instruction i) {
         currentBlock.insertInstruction(i);
         instrInGeneratedOrder.add(i);
+    }
+
+    /** given identifier id, returns Instruction value from current block */
+    public Instruction getIdentifierInstruction(int id) {
+        // have to change later, once i decide how to manage symbol table...
+        // search in currentBlock first, if not found, search upstream to find the enclosing ifBlock or whileBlock which
+        // has the complete symbol table
+        // implement in BasicBlock class, rely on each individual block to be able to locate the most recent definition
+        // of a variable
+        return currentBlock.getIdentifierInstruction(id);
+    }
+
+    /** assigned identifier an instr value, handles phi generation */
+    public void assign(int identifierId, Instruction instr) {
+        // change later to add phi generations
+        this.currentBlock.setIdentifierToInstr(identifierId, instr);
     }
 
                 // ------------------------- DEBUGGING METHODS --------------------------- //
@@ -154,7 +173,7 @@ public class SSAIR
         System.out.println(" Constants:   instr id  | constant");
         System.out.println("              __________|__________");
         for (Instruction i : headBlock.getInstructions()) {
-            System.out.printf("                      %s | %d\n",
+            System.out.printf("                    %s | %d\n",
                                 String.format("(%d)", i.getId()), ((ConstantInstruction) i).getValue());
         }
         System.out.println();
@@ -171,11 +190,12 @@ public class SSAIR
                 }
             }
             String value = symTabSet.getValue() == null ? "null" :  String.format( "(%d)", symTabSet.getValue().getId() );
-            System.out.printf("                       %s | %s\n", varName, value);
+            System.out.printf("                        %s | %s\n", varName, value);
         }
     }
 
     public void printCFG() {
+        System.out.println("\n---------------- CFG ---------------");
         for (BasicBlock block : BasicBlock.allBlocks) {
             ArrayList<String> instrStrs = new ArrayList<>();
             for (Instruction i : block.getInstructions()) {

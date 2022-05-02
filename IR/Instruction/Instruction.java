@@ -18,13 +18,6 @@ public class Instruction
     }
 
     public Instruction(OP opType) {
-        if (Instruction.idCounter == 4 || Instruction.idCounter == 8 || Instruction.idCounter == 12) {
-            System.out.print("Skipped Instruction: ");
-            System.out.println(opType);
-        }
-        System.out.printf("~~~~~~~~~~~~Instruction.idCounter incremented from %d to %d~~~~~~~~~~~~~\n",
-                Instruction.idCounter, Instruction.idCounter+1);
-
         this.id = Instruction.idCounter++;
         this.opType = opType;
     }

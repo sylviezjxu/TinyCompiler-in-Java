@@ -1,13 +1,8 @@
 package IR;
 
 import IR.Instruction.Instruction;
-import IR.Instruction.OpInstruction;
 
-import javax.sound.midi.SysexMessage;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
+import java.util.*;
 
 /**  */
 public class BasicBlock
@@ -22,8 +17,8 @@ public class BasicBlock
     private BasicBlock fallThruFrom;
     private BasicBlock branchFrom;
 
-    private LinkedList<Instruction> instructions;
-    private HashMap<Integer, Instruction> identifierMappedToInstruction;
+    private final LinkedList<Instruction> instructions;
+    private final HashMap<Integer, Instruction> identifierMappedToInstruction;
     // every basic block should inherit its immediate dominator's symbol table??
 
     public enum BlockType {
@@ -125,6 +120,10 @@ public class BasicBlock
 
     // --------- METHODS FOR INSTRUCTION GENERATION ---------- //
 
+    public boolean isNested() {
+        return fallThruTo == null && branchTo == null;
+    }
+
     public LinkedList<Instruction> getInstructions() {
         return instructions;
     }
@@ -134,14 +133,41 @@ public class BasicBlock
     }
 
     public void addVarDecl(int id) {
-        this.identifierMappedToInstruction.put(id, null);
+        identifierMappedToInstruction.put(id, null);
     }
 
     public void insertInstruction(Instruction i) {
         this.instructions.add(i);
     }
 
+    public void setIdentifierToInstr(int id, Instruction i) {
+        identifierMappedToInstruction.put(id, i);
+    }
+
+    // UNTESTED
     public Instruction getIdentifierInstruction(int id) {
-        return this.identifierMappedToInstruction.getOrDefault(id, null);
+        // ifBlock and whileBlock have complete mappings of all variables, can just directly retrieve
+        if (identifierMappedToInstruction.containsKey(id)) {
+            return identifierMappedToInstruction.get(id);
+        } else {
+            // ifThen, ifElse, ifJoin, whileBody, whileFollow
+            // search upward until find if/while, maybe recursive call
+            if (isBlockType(BlockType.IF_ELSE) || isBlockType(BlockType.WHILE_FOLLOW)) {
+                return branchFrom.getIdentifierInstruction(id);
+            }
+            // if IF_JOIN doesn't have the id, that means there's no phi, which means neither then/else modified it
+            else {  // IF_THEN, IF_JOIN, WHILE_BODY
+                return fallThruFrom.getIdentifierInstruction(id);
+            }
+        }
+    }
+
+    public void updateSymbolTableFromParent(BasicBlock parent) {
+        HashMap<Integer, Instruction> parentSymTab = parent.getIdentifierMappedToInstruction();
+        for (Map.Entry<Integer, Instruction> pair : parentSymTab.entrySet()) {
+            if (!identifierMappedToInstruction.containsKey(pair.getKey())) {
+                identifierMappedToInstruction.put(pair.getKey(), pair.getValue());
+            }
+        }
     }
 }

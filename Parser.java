@@ -130,7 +130,8 @@ public class Parser {
             next();     // consumes "let"
             Token var = next();     // consumes identifier
             next();     // consumes "<-"
-            expression();
+            Instruction value = expression();
+            IR.assign(var.getIdValue(), value);
             System.out.println("variable assigned: " + lexer.debugToken(var));
         }
         else {
@@ -175,11 +176,12 @@ public class Parser {
             IR.insertInstrToCurrentBlock(toAdd);
         }
         else {
+            // user defined void function
+            // checkVoid()
             functionCall();
         }
     }
 
-    /** takes in boolean arg which specifies to check for whether the function call is void or non-void */
     public void functionCall() {
         System.out.println("function call");
         next();     // consumes call
@@ -206,7 +208,7 @@ public class Parser {
         // DONE
         System.out.println("if statement");
         next();     // consumes "if"
-        BasicBlock current = IR.enterIf();
+        BasicBlock current = IR.enterIf();      // current = ifBlock
         relation();                        // cmp instructions get added to the current block
         next();     // consumes "then"
         IR.setCurrentBlock(current.getFallThruTo());      // set current to current's then-block
@@ -221,19 +223,29 @@ public class Parser {
         }
         next();     // consumes "fi"
         IR.setCurrentBlock(IR.findJoinBlock());             // set current to current's join
+        // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
+        if (!IR.getCurrentBlock().isNested()) {
+            IR.getCurrentBlock().updateSymbolTableFromParent(current);
+        }
     }
 
     public void whileStatement() {
         // DONE
         System.out.println("while statement");
         next();     // consumes "while"
-        BasicBlock current = IR.enterWhile();
+        BasicBlock current = IR.enterWhile();       // current = whileBlock
         relation();         // cmp instructions get added to while-block
         next();     // consumes "do"
         IR.setCurrentBlock(current.getFallThruTo());        // current = while-body
         statementSequence();
+        // need to assign branch target later !!!!
+        IR.insertInstrToCurrentBlock(new OpInstruction(Instruction.OP.BRA, null, null));
         next();     // consumes "od"
         IR.setCurrentBlock(current.getBranchTo());          // current = while-follow
+        // if whileFollow is un-nested, update its Symbol Table to have all updated variable values
+        if (!IR.getCurrentBlock().isNested()) {
+            IR.getCurrentBlock().updateSymbolTableFromParent(current);
+        }
     }
 
     public void returnStatement() {

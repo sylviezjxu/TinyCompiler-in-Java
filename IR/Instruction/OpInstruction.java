@@ -26,7 +26,7 @@ public class OpInstruction extends Instruction
     @Override
     public String toString() {
         if (op1 == null && op2 == null) {
-            return super.toString();
+            return super.toString() + " null null";
         }
         else if (op2 == null) {
             return String.format("%s (%d) null", super.toString(), op1.getId());
