@@ -167,7 +167,12 @@ public class Lexer {
         return this.identifiersMappedToId.getOrDefault(keyword, -1);
     }
 
-    public String getIdentiferName(int id) {
+    /** FOR DEBUGGING PURPOSES ONLY. For printing out symbol table with variable names. */
+    public Map<String, Integer> getIdentifiersMappedToId() {
+        return identifiersMappedToId;
+    }
+
+    public String getIdentifierName(int id) {
         for (Map.Entry<String, Integer> set : this.identifiersMappedToId.entrySet()) {
             if (set.getValue() == id) {
                 return set.getKey();
@@ -232,19 +237,19 @@ public class Lexer {
     // FOR DEBUGGING PURPOSES ONLY
     public String debugToken(Token token) {
         if (token.isLiteral()) {
-            return String.format("Literal: %d\n", token.value);
+            return String.format("Literal: %d\n", token.getIdValue());
         }
         else if (token.isSymbol()) {
             for (Map.Entry<String, Integer> entry : this.symbolMappedToId.entrySet()) {
-                if (entry.getValue() == token.value) {
-                    return "Symbol: " + entry.getKey() + " | id: " + token.value;
+                if (entry.getValue() == token.getIdValue()) {
+                    return "Symbol: " + entry.getKey() + " | id: " + token.getIdValue();
                 }
             }
         }
         else {
             for (Map.Entry<String, Integer> entry : this.identifiersMappedToId.entrySet()) {
-                if (entry.getValue() == token.value) {
-                    return "Identifier: " + entry.getKey() + " | id: " + token.value;
+                if (entry.getValue() == token.getIdValue()) {
+                    return "Identifier: " + entry.getKey() + " | id: " + token.getIdValue();
                 }
             }
         }
@@ -254,7 +259,7 @@ public class Lexer {
 
     public static void main(String[] args) {
         try {
-            Lexer lexer = new Lexer("tests/while-if-if.tiny");
+            Lexer lexer = new Lexer("tests/CFG/while-if-if.tiny");
             Token next;
             while ((next = lexer.peek()) != null) {
                 next = lexer.peek();

@@ -23,7 +23,7 @@ public class BasicBlock
     private BasicBlock branchFrom;
 
     private LinkedList<Instruction> instructions;
-    private HashMap<Integer, OpInstruction> identifierMappedToInstruction;
+    private HashMap<Integer, Instruction> identifierMappedToInstruction;
     // every basic block should inherit its immediate dominator's symbol table??
 
     public enum BlockType {
@@ -42,7 +42,7 @@ public class BasicBlock
         allBlocks.add(this);
     }
 
-    // ---------- ACCESS METHODS ----------- //
+    // ---------- ACCESS/CFG-LINKING METHODS ----------- //
     public int getBlockId() {
         return blockId;
     }
@@ -123,13 +123,22 @@ public class BasicBlock
         }
     }
 
-    // --------- CHANGE METHODS ---------- //
-    public void insertInstruction(Instruction i) {
-        this.instructions.add(i);
+    // --------- METHODS FOR INSTRUCTION GENERATION ---------- //
+
+    public LinkedList<Instruction> getInstructions() {
+        return instructions;
+    }
+
+    public HashMap<Integer, Instruction> getIdentifierMappedToInstruction() {
+        return identifierMappedToInstruction;
     }
 
     public void addVarDecl(int id) {
         this.identifierMappedToInstruction.put(id, null);
+    }
+
+    public void insertInstruction(Instruction i) {
+        this.instructions.add(i);
     }
 
     public Instruction getIdentifierInstruction(int id) {

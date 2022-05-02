@@ -4,8 +4,8 @@
 
 public class Token {
 
-    TokenType tokenType;      // SYMBOL, IDENTIFIER, LITERAL
-    int value;                // Id for symbol & identifier, value for literal
+    private TokenType tokenType;      // SYMBOL, IDENTIFIER, LITERAL
+    private int get;                // Id for symbol & identifier, value for literal
 
     public enum TokenType {
         SYMBOL,
@@ -15,11 +15,11 @@ public class Token {
 
     public Token(TokenType tokenType, int value) {
         this.tokenType = tokenType;
-        this.value = value;
+        this.get = value;
     }
 
     public int getIdValue() {
-        return this.value;
+        return this.get;
     }
 
     public boolean isSymbol() { return this.tokenType.compareTo(TokenType.SYMBOL) == 0; }
@@ -27,11 +27,11 @@ public class Token {
     public boolean isLiteral() { return this.tokenType.compareTo(TokenType.LITERAL) == 0; }
 
     public boolean isUserDefinedIdentifier() {
-        return this.tokenType.compareTo(TokenType.IDENTIFIER) == 0 && this.value > 14;
+        return this.tokenType.compareTo(TokenType.IDENTIFIER) == 0 && this.get > 14;
     }
 
     public boolean isRelationalOp() {
-        return this.tokenType.compareTo(TokenType.SYMBOL) == 0 && this.value >= 1 && this.value <= 6;
+        return this.tokenType.compareTo(TokenType.SYMBOL) == 0 && this.get >= 1 && this.get <= 6;
     }
 
     public static void main(String[] args) {

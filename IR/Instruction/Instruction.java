@@ -3,6 +3,7 @@ package IR.Instruction;
 public class Instruction
 {
     public static int idCounter = 1;
+
     private final int id;
     private final OP opType;
 
@@ -16,8 +17,15 @@ public class Instruction
         READ, WRITE, WRITENL
     }
 
-    public Instruction(int id, OP opType) {
-        this.id = id;
+    public Instruction(OP opType) {
+        if (Instruction.idCounter == 4 || Instruction.idCounter == 8 || Instruction.idCounter == 12) {
+            System.out.print("Skipped Instruction: ");
+            System.out.println(opType);
+        }
+        System.out.printf("~~~~~~~~~~~~Instruction.idCounter incremented from %d to %d~~~~~~~~~~~~~\n",
+                Instruction.idCounter, Instruction.idCounter+1);
+
+        this.id = Instruction.idCounter++;
         this.opType = opType;
     }
 
@@ -27,5 +35,9 @@ public class Instruction
 
     public OP getOpType() {
         return opType;
+    }
+
+    public String toString() {
+        return String.format("%d: %s", id, opType.toString());
     }
 }

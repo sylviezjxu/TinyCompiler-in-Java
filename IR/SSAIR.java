@@ -2,8 +2,12 @@ package IR;
 
 import IR.Instruction.ConstantInstruction;
 import IR.Instruction.Instruction;
+import IR.Instruction.OpInstruction;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 /** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation. */
 public class SSAIR
@@ -19,38 +23,18 @@ public class SSAIR
         currentBlock = headBlock;
     }
 
+            // ------------------------- CFG GENERATION METHODS --------------------------- //
+
+    /** sets currentBlock to target block. Used to set up CFG to generate instructions in the right blocks */
+    public void setCurrentBlock(BasicBlock target) {
+        this.currentBlock = target;
+    }
+
+    /** generates new block which directly falls thru from currentBlock. Set currentBlock to new block */
     public void generateFallThruBlock(BasicBlock.BlockType blockType) {
-        // generates new block, pointed to by currentBlock. Set currentBlock to new block.
         BasicBlock newBlock = new BasicBlock(blockType);
         currentBlock.addDoubleLinkedFallThruTo(newBlock);
         currentBlock = currentBlock.getFallThruTo();      // since it's just single path fallthru, advance currentblock to fallthru
-    }
-
-    /** add constant to headBlock */
-    public Instruction addConstant(int c) {
-        Instruction res = new ConstantInstruction(Instruction.idCounter++, c);
-        headBlock.insertInstruction(res);
-        return res;
-    }
-
-    /** add variable declaration to current block's symbol table and initialize to null */
-    public void addVarDecl(int id) {
-        currentBlock.addVarDecl(id);
-    }
-
-    /** given identifier id, returns Instruction value from current block */
-    public Instruction getIdentifierInstruction(int id) {
-        return currentBlock.getIdentifierInstruction(id);
-    }
-
-    /** inserts Instruction into the current block and into list of instrInGeneratedOrder*/
-    public void insertInstruction(Instruction i) {
-        currentBlock.insertInstruction(i);
-        instrInGeneratedOrder.add(i);
-    }
-
-    public void setCurrentBlock(BasicBlock target) {
-        this.currentBlock = target;
     }
 
     /** generate IF-CFG. current block becomes if-block, generate then block and join block,
@@ -95,6 +79,7 @@ public class SSAIR
         newElse.addDoubleLinkedFallThruTo(join);
     }
 
+    /** finds join-block after generating then-block/else-block. currentBlock is either thenBlock or elseBlock. */
     public BasicBlock findJoinBlock() {
         return currentBlock.getFallThruTo();
     }
@@ -131,10 +116,74 @@ public class SSAIR
         return currentBlock;
     }
 
-    /** FOR DEBUGGING PURPOSES ONLY */
+        // ------------------------- SSA INSTRUCTION GENERATION METHODS --------------------------- //
+
+    /** searches for and returns constant in headBlock, if not found, insert and return */
+    public Instruction addConstantIfNotExists(int c) {
+        for (Instruction instr : headBlock.getInstructions()) {
+            if ( ((ConstantInstruction) instr).getValue() == c ) {
+                return instr;
+            }
+        }
+        Instruction res = new ConstantInstruction(c);
+        headBlock.insertInstruction(res);
+        return res;
+    }
+
+    /** add variable declaration to current block's symbol table and initialize to null */
+    public void addVarDecl(int id) {
+        currentBlock.addVarDecl(id);
+    }
+
+    /** given identifier id, returns Instruction value from current block */
+    public Instruction getIdentifierInstruction(int id) {
+        // have to change later, once i decide how to manage symbol table...
+        return currentBlock.getIdentifierInstruction(id);
+    }
+
+    /** inserts Instruction into the current block and into list of instrInGeneratedOrder */
+    public void insertInstrToCurrentBlock(Instruction i) {
+        currentBlock.insertInstruction(i);
+        instrInGeneratedOrder.add(i);
+    }
+
+                // ------------------------- DEBUGGING METHODS --------------------------- //
+
+    public void printSymbolTable(Map<String, Integer> lexerMap) {
+        System.out.println("              _____________________");
+        System.out.println(" Constants:   instr id  | constant");
+        System.out.println("              __________|__________");
+        for (Instruction i : headBlock.getInstructions()) {
+            System.out.printf("                      %s | %d\n",
+                                String.format("(%d)", i.getId()), ((ConstantInstruction) i).getValue());
+        }
+        System.out.println();
+        System.out.println("                _____________________");
+        System.out.println(" Identifiers:       var   | instr    ");
+        System.out.println("                __________|__________");
+
+        HashMap<Integer, Instruction> symTab = headBlock.getFallThruTo().getIdentifierMappedToInstruction();
+        for (Map.Entry<Integer, Instruction> symTabSet : symTab.entrySet()) {
+            String varName = "not found";
+            for (Map.Entry<String, Integer> lexerSet : lexerMap.entrySet()) {
+                if (Objects.equals(lexerSet.getValue(), symTabSet.getKey())) {
+                    varName = lexerSet.getKey();
+                }
+            }
+            String value = symTabSet.getValue() == null ? "null" :  String.format( "(%d)", symTabSet.getValue().getId() );
+            System.out.printf("                       %s | %s\n", varName, value);
+        }
+    }
+
     public void printCFG() {
         for (BasicBlock block : BasicBlock.allBlocks) {
-            System.out.printf("bb%d [shape=record, label=\"<b>BB%d\"];\n", block.getBlockId(), block.getBlockId());
+            ArrayList<String> instrStrs = new ArrayList<>();
+            for (Instruction i : block.getInstructions()) {
+                instrStrs.add(i.toString());
+            }
+            String blockContent = String.join("|", instrStrs);
+            System.out.printf("bb%d [shape=record, label=\"<b>BB%d | {%s}\"];\n",
+                    block.getBlockId(), block.getBlockId(), blockContent);
         }
         System.out.println();
         for (BasicBlock block : BasicBlock.allBlocks) {

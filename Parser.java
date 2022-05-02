@@ -23,24 +23,26 @@ public class Parser {
         System.out.println("variable reference: " + this.lexer.debugToken(peek()));
         Token var = next();
         Instruction value = IR.getIdentifierInstruction(var.getIdValue());
-        // check if value has been declared/assigned a value
+        // check if value has been declared/assigned a value. can assume anytime a var is referenced, it's already
+        // been declared. So it definitely exists in the IR symbol table
         if (value == null) {
             warning( String.format("variable %s is referenced but never initialized.",
-                     lexer.getIdentiferName(var.getIdValue())) );
+                     lexer.getIdentifierName(var.getIdValue())) );
         }
         return value;
     }
 
     /** returns the Instruction that represents the value of the literal */
     public Instruction number() {
+        // DONE
         System.out.println("number" + this.lexer.debugToken(peek()));
         Token var = next();
-        // check if constant exists already!
-        return IR.addConstant(var.getIdValue());
+        return IR.addConstantIfNotExists(var.getIdValue());
     }
 
     /** factor() returns the Instruction that represents the value of the var/constant/expression/function call */
     public Instruction factor() {
+        // DONE
         System.out.println("factor");
         Instruction res;
         Token peek = peek();
@@ -56,7 +58,7 @@ public class Parser {
             next();     // consumes ")"
         }
         else if (checkIfTokenIs(peek, "call")) {
-            res = nonVoidFunctionCall();        // returns null rn
+            res = nonVoidFunctionCall();        // returns instr. representing result of the function call
         } else {
             res = null;
         }
@@ -65,18 +67,19 @@ public class Parser {
 
     /** returns the Instruction that represents the value of the term */
     public Instruction term() {
+        // DONE
         System.out.println("term");
-        Instruction op1, op2, res = null;
+        Instruction op1, op2, res;
         op1 = res = factor();
         while (checkIfTokenIs(peek(), "*") || checkIfTokenIs(peek(), "/") ) {
             Token sym = next();
             op2 = factor();
             if (checkIfTokenIs(sym, "*")) {
-                res = new OpInstruction(Instruction.idCounter++, Instruction.OP.MUL, op1, op2);
-                IR.insertInstruction(res);
+                res = new OpInstruction(Instruction.OP.MUL, op1, op2);
+                IR.insertInstrToCurrentBlock(res);
             } else {
-                res = new OpInstruction(Instruction.idCounter++, Instruction.OP.DIV, op1, op2);
-                IR.insertInstruction(res);
+                res = new OpInstruction(Instruction.OP.DIV, op1, op2);
+                IR.insertInstrToCurrentBlock(res);
             }
             op1 = res;
         }
@@ -85,31 +88,37 @@ public class Parser {
 
     /** expression() returns the Instruction object that is the value of the expressionn */
     public Instruction expression() {
+        // DONE
         System.out.println("expression");
-        Instruction op1, op2, res = null;
+        Instruction op1, op2, res;
         op1 = res = term();
         while (checkIfTokenIs(peek(), "+") || checkIfTokenIs(peek(), "-") ) {
             Token sym = next();
             op2 = term();
             if (checkIfTokenIs(sym, "+")) {
-                res = new OpInstruction(Instruction.idCounter++, Instruction.OP.ADD, op1, op2);
-                IR.insertInstruction(res);
+                res = new OpInstruction(Instruction.OP.ADD, op1, op2);
+                IR.insertInstrToCurrentBlock(res);
             } else {
-                res = new OpInstruction(Instruction.idCounter++, Instruction.OP.SUB, op1, op2);
-                IR.insertInstruction(res);
+                res = new OpInstruction(Instruction.OP.SUB, op1, op2);
+                IR.insertInstrToCurrentBlock(res);
             }
             op1 = res;
         }
         return res;
     }
 
+    /** relation() does not return any Instruction, it adds cmp & bra instructions to the right block,
+     *  the correct block is already entered in body of ifStatement() & whileStatement() */
     public void relation() {
+        // DONE
         System.out.println("relation");
-        expression();
+        Instruction expr1 = expression();
         System.out.println("relational comparison: " + lexer.debugToken(peek()));
         if (peek().isRelationalOp()) {
-            next();
-            expression();
+            Token relOp = next();         // consumes relOp
+            Instruction expr2 = expression();
+            IR.insertInstrToCurrentBlock( new OpInstruction(Instruction.OP.CMP, expr1, expr2) );
+            IR.insertInstrToCurrentBlock( computeRelOpBranchInstr(relOp, expr1, expr2) );
         } else {
             error("Invalid relation");
         }
@@ -131,15 +140,46 @@ public class Parser {
 
     public Instruction nonVoidFunctionCall() {
         System.out.println("Non-void function call");
-        functionCall();
-        return null;
+        next();     // consumes "call"
+        Token funcName = next();
+        if (checkIfTokenIs(funcName, "InputNum")) {
+            next();
+            next();
+            Instruction toAdd = new Instruction(Instruction.OP.READ);
+            IR.insertInstrToCurrentBlock(toAdd);
+            return toAdd;
+        }
+        else {
+            // user defined functions, check for non-void
+            // checkNonVoid()
+            // return functionCall(). have functionCall() return Instruction, voidFunctionCall can just not use it.
+            return null;
+        }
     }
 
     public void voidFunctionCall() {
         System.out.println("void function call");
-        functionCall();
+        next();     // consumes "call"
+        Token funcName = next();
+        if (checkIfTokenIs(funcName, "OutputNum")) {
+            next();     // consumes "("
+            Token arg = next();
+            next();     // consumes ")"
+            Instruction toAdd = new OpInstruction(Instruction.OP.WRITE, IR.getIdentifierInstruction(arg.getIdValue()), null);
+            IR.insertInstrToCurrentBlock(toAdd);
+        }
+        else if (checkIfTokenIs(funcName, "OutputNewLine")) {
+            next();
+            next();
+            Instruction toAdd = new Instruction(Instruction.OP.WRITENL);
+            IR.insertInstrToCurrentBlock(toAdd);
+        }
+        else {
+            functionCall();
+        }
     }
 
+    /** takes in boolean arg which specifies to check for whether the function call is void or non-void */
     public void functionCall() {
         System.out.println("function call");
         next();     // consumes call
@@ -147,6 +187,7 @@ public class Parser {
         if (checkIfTokenIs(peek(), "(")) {
             next();
             if (!checkIfTokenIs(peek(), ")")) {
+                // replace body w helper function mapArguments()
                 expression();
                 while (checkIfTokenIs(peek(), ",")) {
                     next();
@@ -155,18 +196,19 @@ public class Parser {
             }
             next();
         } else {
-            if (!functionHasNoParams(funcName)) {       // error if function has parameters
+            if (!functionHasNoParams(funcName)) {       // error if function has parameters but no arguments
                 error("invalid function call, function called with no arguments");
             }
         }
     }
 
     public void ifStatement() {
+        // DONE
         System.out.println("if statement");
         next();     // consumes "if"
-        relation();
-        next();     // consumes "then"
         BasicBlock current = IR.enterIf();
+        relation();                        // cmp instructions get added to the current block
+        next();     // consumes "then"
         IR.setCurrentBlock(current.getFallThruTo());      // set current to current's then-block
         statementSequence();
         if (checkIfTokenIs(peek(), "else")) {
@@ -182,10 +224,11 @@ public class Parser {
     }
 
     public void whileStatement() {
+        // DONE
         System.out.println("while statement");
         next();     // consumes "while"
         BasicBlock current = IR.enterWhile();
-        relation();
+        relation();         // cmp instructions get added to while-block
         next();     // consumes "do"
         IR.setCurrentBlock(current.getFallThruTo());        // current = while-body
         statementSequence();
@@ -235,10 +278,13 @@ public class Parser {
         }
     }
 
+    /** add every var-declaration to the current block's symbol table, initialize to null */
     public void variableDeclaration() {
+        // DONE
         System.out.println("variable declaration");
         next();     // consumes "var"
         Token var = next();     // consumes identifier
+        IR.addVarDecl(var.getIdValue());     // add identifier id to symbol table
         System.out.println("variable declared: " + lexer.debugToken(var));
         while (checkIfTokenIs(peek(), ",")) {
             next();     // consumes ","
@@ -308,9 +354,32 @@ public class Parser {
             System.out.println("DONE PARSING!");
         }
         IR.printCFG();
+        IR.printSymbolTable(lexer.getIdentifiersMappedToId());
     }
 
     // ------------ HELPER FUNCTIONS ------------- //
+    private Instruction computeRelOpBranchInstr(Token relOp, Instruction expr1, Instruction expr2) {
+        // target Instruction has to be updated later else/join block has been generated
+        if (checkIfTokenIs(relOp, "==")) {
+            return new OpInstruction(Instruction.OP.BNE, null, null);
+        }
+        else if (checkIfTokenIs(relOp, "!=")) {
+            return new OpInstruction(Instruction.OP.BEQ, null, null);
+        }
+        else if (checkIfTokenIs(relOp, "<")) {
+            return new OpInstruction(Instruction.OP.BGE, null, null);
+        }
+        else if (checkIfTokenIs(relOp, "<=")) {
+            return new OpInstruction(Instruction.OP.BGT, null, null);
+        }
+        else if (checkIfTokenIs(relOp, ">")) {
+            return new OpInstruction(Instruction.OP.BLE, null, null);
+        }
+        else {      // ">="
+            return new OpInstruction(Instruction.OP.BLT, null, null);
+        }
+    }
+
     private boolean functionHasNoParams(Token funcName) {
         return true;
     }
@@ -343,7 +412,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/while-if-if.tiny");
+        Lexer lexer = new Lexer("tests/CFG/while-if-if.tiny");
         Parser parser = new Parser(lexer);
     }
 
