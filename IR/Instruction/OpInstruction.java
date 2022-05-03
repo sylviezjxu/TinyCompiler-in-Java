@@ -23,6 +23,10 @@ public class OpInstruction extends Instruction
         return op2;
     }
 
+    public void setOp2(Instruction op2) {
+        this.op2 = op2;
+    }
+
     @Override
     public String toString() {
         if (op1 == null && op2 == null) {

@@ -1,3 +1,5 @@
+package frontend;
+
 import IR.BasicBlock;
 import IR.Instruction.Instruction;
 import IR.Instruction.OpInstruction;
@@ -23,8 +25,6 @@ public class Parser {
         System.out.println("variable reference: " + this.lexer.debugToken(peek()));
         Token var = next();
         Instruction value = IR.getIdentifierInstruction(var.getIdValue());
-        // check if value has been declared/assigned a value. can assume anytime a var is referenced, it's already
-        // been declared. So it definitely exists in the IR symbol table
         if (value == null) {
             warning( String.format("variable %s is referenced but never initialized.",
                      lexer.getIdentifierName(var.getIdValue())) );
@@ -204,6 +204,7 @@ public class Parser {
         }
     }
 
+    // ONLY propoagate at the end of traversing if-then-else
     public void ifStatement() {
         // DONE
         System.out.println("if statement");
@@ -223,8 +224,10 @@ public class Parser {
         }
         next();     // consumes "fi"
         IR.setCurrentBlock(IR.findJoinBlock());             // set current to current's join
-        // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
-        if (!IR.getCurrentBlock().isNested()) {
+        if (IR.getCurrentBlock().isNested()) {
+            // propagate phi, the join block should only have phi functions
+            IR.propagateIfJoin();
+        } else {        // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
             IR.getCurrentBlock().updateSymbolTableFromParent(current);
         }
     }
@@ -246,6 +249,7 @@ public class Parser {
         if (!IR.getCurrentBlock().isNested()) {
             IR.getCurrentBlock().updateSymbolTableFromParent(current);
         }
+        // propagate while
     }
 
     public void returnStatement() {
@@ -408,9 +412,9 @@ public class Parser {
         try {
             return this.lexer.next();
         } catch (IOException e) {
-            System.out.println("Parser next(): IO error");
+            System.out.println("frontend.Parser next(): IO error");
         } catch (TinySyntaxError e) {
-            System.out.println("Parser next(): tiny syntax error");
+            System.out.println("frontend.Parser next(): tiny syntax error");
         }
         return null;
     }
@@ -424,7 +428,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/CFG/while-if-if.tiny");
+        Lexer lexer = new Lexer("tests/SSA/simple-while.tiny");
         Parser parser = new Parser(lexer);
     }
 

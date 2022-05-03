@@ -1,4 +1,4 @@
-// TOKEN class
+package frontend;// TOKEN class
 // A token can be SYMBOL, IDENTIFIER, VALUE
 // A token has an int ID to tell which Symbol/Identifier it is.
 

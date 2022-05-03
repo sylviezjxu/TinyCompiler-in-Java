@@ -4,12 +4,14 @@ import IR.Instruction.ConstantInstruction;
 import IR.Instruction.Instruction;
 import IR.Instruction.OpInstruction;
 
+import javax.swing.plaf.basic.BasicIconFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation. */
+/** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation.
+ *  */
 public class SSAIR
 {
     private ArrayList<Instruction> instrInGeneratedOrder;  // <- for propogating phi's in while CFG
@@ -18,7 +20,7 @@ public class SSAIR
 
     /** initialize headBlock to empty block used to store constants. */
     public SSAIR() {
-        instrInGeneratedOrder = new ArrayList<Instruction>();
+        instrInGeneratedOrder = new ArrayList<>();
         instrInGeneratedOrder.add(null);
         headBlock = new BasicBlock(BasicBlock.BlockType.BASIC);     // headBlock stores constants
         currentBlock = headBlock;
@@ -150,20 +152,49 @@ public class SSAIR
         instrInGeneratedOrder.add(i);
     }
 
-    /** given identifier id, returns Instruction value from current block */
+    /** given identifier id, returns Instruction value from current block, search method implemented in BasicBlock */
     public Instruction getIdentifierInstruction(int id) {
-        // have to change later, once i decide how to manage symbol table...
-        // search in currentBlock first, if not found, search upstream to find the enclosing ifBlock or whileBlock which
-        // has the complete symbol table
-        // implement in BasicBlock class, rely on each individual block to be able to locate the most recent definition
-        // of a variable
         return currentBlock.getIdentifierInstruction(id);
     }
 
-    /** assigned identifier an instr value, handles phi generation */
-    public void assign(int identifierId, Instruction instr) {
-        // change later to add phi generations
-        this.currentBlock.setIdentifierToInstr(identifierId, instr);
+    /** assigned identifier an instr value, handles phi generation, immediately propagate if nested
+     *  all assignments get inserted into currentBlock's symbol table */
+    public void assign(int id, Instruction value)
+    {
+        this.currentBlock.setIdentifierToInstr(id, value);
+        // only generate phi for if-then, if-else, while-body - blocks that are branches of CFG
+        if (currentBlock.isBlockType(BasicBlock.BlockType.IF_THEN) ) {
+            BasicBlock joinBlock = currentBlock.getFallThruTo();
+            Instruction phi = new OpInstruction(Instruction.OP.PHI, value, joinBlock.getBranchFrom().getIdentifierInstruction(id));
+            joinBlock.insertInstruction(phi);           // inserts instr into joinBlock
+            joinBlock.setIdentifierToInstr(id, phi);    // adds {id : instr} to joinBlock's symbol table
+            instrInGeneratedOrder.add(phi);
+        }
+        // order of phi operands differ between then/else blocks
+        else if (currentBlock.isBlockType(BasicBlock.BlockType.IF_ELSE)) {
+            BasicBlock joinBlock = currentBlock.getFallThruTo();
+            // check if this phi already exists. if this id has already been assigned in joinBlock, it has an existing phi.
+            if (joinBlock.containsAssignment(id)) {
+                ((OpInstruction)joinBlock.getIdentifierInstruction(id)).setOp2(value);
+            }
+            else {
+                Instruction phi = new OpInstruction(Instruction.OP.PHI, currentBlock.getBranchFrom().getIdentifierInstruction(id), value);
+                joinBlock.insertInstruction(phi);
+                joinBlock.setIdentifierToInstr(id, phi);
+                instrInGeneratedOrder.add(phi);
+            }
+        }
+        else if (currentBlock.isBlockType(BasicBlock.BlockType.WHILE_BODY)) {
+            BasicBlock joinBlock = currentBlock.getBranchTo();
+            Instruction phi = new OpInstruction(Instruction.OP.PHI, currentBlock.getFallThruFrom().getIdentifierInstruction(id), value);
+            joinBlock.insertInstruction(phi);
+            joinBlock.setIdentifierToInstr(id, phi);
+            instrInGeneratedOrder.add(phi);
+        }
+    }
+
+    public void propagateIfJoin() {
+
     }
 
                 // ------------------------- DEBUGGING METHODS --------------------------- //
@@ -181,7 +212,7 @@ public class SSAIR
         System.out.println(" Identifiers:       var   | instr    ");
         System.out.println("                __________|__________");
 
-        HashMap<Integer, Instruction> symTab = headBlock.getFallThruTo().getIdentifierMappedToInstruction();
+        HashMap<Integer, Instruction> symTab = headBlock.getFallThruTo().getSymbolTable();
         for (Map.Entry<Integer, Instruction> symTabSet : symTab.entrySet()) {
             String varName = "not found";
             for (Map.Entry<String, Integer> lexerSet : lexerMap.entrySet()) {
