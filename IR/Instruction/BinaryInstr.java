@@ -1,11 +1,11 @@
 package IR.Instruction;
 
-public class OpInstruction extends Instruction
+public class BinaryInstr extends Instruction
 {
     private Instruction op1;
     private Instruction op2;
 
-    public OpInstruction(Instruction.OP opType, Instruction op1, Instruction op2) {
+    public BinaryInstr(Op opType, Instruction op1, Instruction op2) {
         super(opType);
         this.op1 = op1;
         this.op2 = op2;
@@ -29,17 +29,12 @@ public class OpInstruction extends Instruction
 
     @Override
     public String toString() {
-        if (op1 == null && op2 == null) {
-            return super.toString() + " null null";
+        if (op1 == null) {
+            return String.format("%s null (%d)", super.toString(), op2.getId());
         }
         else if (op2 == null) {
             return String.format("%s (%d) null", super.toString(), op1.getId());
         }
-        else if (op1 == null) {
-            return String.format("%s null (%d)", super.toString(), op2.getId());
-        }
-        else {
-            return String.format("%s (%d) (%d)", super.toString(), op1.getId(), op2.getId());
-        }
+        return String.format("%s (%d) (%d)", super.toString(), op1.getId(), op2.getId());
     }
 }

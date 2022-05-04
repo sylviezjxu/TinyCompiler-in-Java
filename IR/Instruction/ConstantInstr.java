@@ -1,11 +1,11 @@
 package IR.Instruction;
 
-public class ConstantInstruction extends Instruction {
+public class ConstantInstr extends Instruction {
 
     private final int value;
 
-    public ConstantInstruction(int value) {
-        super(OP.CONST);
+    public ConstantInstr(int value) {
+        super(Op.CONST);
         this.value = value;
     }
 

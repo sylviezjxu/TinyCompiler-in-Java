@@ -1,10 +1,9 @@
 package IR;
 
-import IR.Instruction.ConstantInstruction;
+import IR.Instruction.ConstantInstr;
 import IR.Instruction.Instruction;
-import IR.Instruction.OpInstruction;
+import IR.Instruction.BinaryInstr;
 
-import javax.swing.plaf.basic.BasicIconFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -103,9 +102,11 @@ public class SSAIR
             currentBlock.deleteBranchWithParent(saveOuter);
         }
         // while cmp needs to be in its own block for phi generation
-        if (!currentBlock.isEmpty()) {                         // if current is empty, no need to generate new block
+        /** PROBLEM RN: FOR EMPTY join-block/follow blocks, while does not generate new empty fallthru block,
+         *  causes while block to overwrite its branchFrom parents. */
+        if (!currentBlock.isEmpty() || currentBlock.getBranchFrom() != null) {                         // if current is empty, no need to generate new block
             generateFallThruBlock(BasicBlock.BlockType.WHILE);      // currentBlock is now the WHILE-Block
-            currentBlock.updateSymbolTableFromParent(currentBlock.getFallThruFrom());   // whileBlock should have complete symbol table
+            //currentBlock.updateSymbolTableFromParent(currentBlock.getFallThruFrom());   // whileBlock should have complete symbol table
         } else {
             currentBlock.addBlockType(BasicBlock.BlockType.WHILE);  // currentBlock is now of BlockType WHILE
         }
@@ -129,11 +130,11 @@ public class SSAIR
     /** searches for and returns constant in headBlock, if not found, insert and return */
     public Instruction addConstantIfNotExists(int c) {
         for (Instruction instr : headBlock.getInstructions()) {
-            if ( ((ConstantInstruction) instr).getValue() == c ) {
+            if ( ((ConstantInstr) instr).getValue() == c ) {
                 return instr;
             }
         }
-        Instruction res = new ConstantInstruction(c);
+        Instruction res = new ConstantInstr(c);
         headBlock.insertInstruction(res);
         instrInGeneratedOrder.add(res);
         return res;
@@ -162,39 +163,126 @@ public class SSAIR
     public void assign(int id, Instruction value)
     {
         this.currentBlock.setIdentifierToInstr(id, value);
-        // only generate phi for if-then, if-else, while-body - blocks that are branches of CFG
-        if (currentBlock.isBlockType(BasicBlock.BlockType.IF_THEN) ) {
+
+        /** CASE I
+         *        1) currentBlock = IF_THEN block
+         *        2) currentBlock is the join/follow block of an if=/while- structure nested within the THEN-BLOCK of an enclosing
+         *           if-structure.
+         *
+         *           This happens when the inner-if has assignment statements after "fi"/"od". those assignments
+         *           are not in a IF_THEN block, but still are encased in an outer then-block and need to generate phi's.
+         *
+         *           *this isn't a problem for assignments anywhere else because all other cases in an if-structure
+         *           are either in then-block or else-block and would generate phi's accordingly.
+         *
+         *  value = FIRST operand of phi, look for second operand in enclosing if-Block's symbol table
+         *  */
+        if (currentBlock.isBlockType(BasicBlock.BlockType.IF_THEN) || currentBlock.nestedInThenBlock()) {
             BasicBlock joinBlock = currentBlock.getFallThruTo();
-            Instruction phi = new OpInstruction(Instruction.OP.PHI, value, joinBlock.getBranchFrom().getIdentifierInstruction(id));
-            joinBlock.insertInstruction(phi);           // inserts instr into joinBlock
-            joinBlock.setIdentifierToInstr(id, phi);    // adds {id : instr} to joinBlock's symbol table
-            instrInGeneratedOrder.add(phi);
-        }
-        // order of phi operands differ between then/else blocks
-        else if (currentBlock.isBlockType(BasicBlock.BlockType.IF_ELSE)) {
-            BasicBlock joinBlock = currentBlock.getFallThruTo();
-            // check if this phi already exists. if this id has already been assigned in joinBlock, it has an existing phi.
-            if (joinBlock.containsAssignment(id)) {
-                ((OpInstruction)joinBlock.getIdentifierInstruction(id)).setOp2(value);
+            if (joinBlock.containsPhiAssignment(id)) {
+                ((BinaryInstr)joinBlock.getIdentifierInstruction(id)).setOp1(value);
             }
             else {
-                Instruction phi = new OpInstruction(Instruction.OP.PHI, currentBlock.getBranchFrom().getIdentifierInstruction(id), value);
-                joinBlock.insertInstruction(phi);
-                joinBlock.setIdentifierToInstr(id, phi);
-                instrInGeneratedOrder.add(phi);
+                Instruction phi = new BinaryInstr(Instruction.Op.PHI, value, joinBlock.getBranchFrom().getIdentifierInstruction(id));
+                insertPhiToJoinBlock(joinBlock, id, phi);
             }
         }
-        else if (currentBlock.isBlockType(BasicBlock.BlockType.WHILE_BODY)) {
+        /** CASE II
+         *       1) currentBlock = IF_ELSE block
+         *       2) currentBlock is the join-block/follow-block of an if-/while- structure nested within the ELSE-BLOCK
+         *          of an enclosing if-structure. Assignment statement after "fi"/"od".
+         *
+         *  value = SECOND operand of phi, look for first operand in the if-block of the enclosing if-structure
+         *
+         *  *NOTE: starting serach for first operand in currentBlock.getBranchFrom() will reach the enclosing if-block
+         *  eventually. If joinBlock has no phi for that identifier, that means the entire nested if-structure does not
+         *  assign to it, therefore will not have it in its symbol table.
+         *  */
+        // order of phi operands differ between then/else blocks
+        // also check to recognize assignments after if-join of nested if structures and generate phi accordingly
+        else if (currentBlock.isBlockType(BasicBlock.BlockType.IF_ELSE) ||
+                currentBlock.getFallThruTo() != null && currentBlock.getFallThruTo().isBlockType(BasicBlock.BlockType.IF_JOIN)) {
+            BasicBlock joinBlock = currentBlock.getFallThruTo();
+            // check if this phi already exists. if this id has already been assigned in joinBlock, it has an existing phi.
+            if (joinBlock.containsPhiAssignment(id)) {
+                ((BinaryInstr)joinBlock.getIdentifierInstruction(id)).setOp2(value);
+            }
+            else {
+                Instruction phi = new BinaryInstr(Instruction.Op.PHI, currentBlock.getBranchFrom().getIdentifierInstruction(id), value);
+                insertPhiToJoinBlock(joinBlock, id, phi);
+            }
+        }
+        /** CASE III
+         *       1) currentBlock = WHILE_BODY block
+         *       2) currentBlock is the join-block/follow-block of an if-/while- structure nested within the WHILE-BODY
+         *          of an enclosing while-structure. Assignment statement after "fi"/"od".
+         *
+         *  value = SECOND operand of phi, look for first operand in the parent of the WHILE-BLOCK of the enclosing
+         *  while-structure.
+         * */
+        else if (currentBlock.isBlockType(BasicBlock.BlockType.WHILE_BODY) ||
+                currentBlock.getBranchTo() != null && currentBlock.getBranchTo().isBlockType(BasicBlock.BlockType.WHILE) ) {
             BasicBlock joinBlock = currentBlock.getBranchTo();
-            Instruction phi = new OpInstruction(Instruction.OP.PHI, currentBlock.getFallThruFrom().getIdentifierInstruction(id), value);
-            joinBlock.insertInstruction(phi);
-            joinBlock.setIdentifierToInstr(id, phi);
-            instrInGeneratedOrder.add(phi);
+            // the assumption is if the joinBlock has this id in symbol Table, it must be a phi function for this identifier
+            if (joinBlock.containsPhiAssignment(id)) {
+                ((BinaryInstr)joinBlock.getIdentifierInstruction(id)).setOp2(value);
+            }
+            else {
+                // PROBLEM: CAN it just be joinBlock.getIdentifierInstruction() ?
+                Instruction phi = new BinaryInstr(Instruction.Op.PHI, joinBlock.getIdentifierInstruction(id), value);
+                insertPhiToJoinBlock(joinBlock, id, phi);
+            }
         }
     }
 
-    public void propagateIfJoin() {
+    private void insertPhiToJoinBlock(BasicBlock joinBlock, int id, Instruction phi) {
+        joinBlock.insertInstruction(phi);           // inserts instr into joinBlock
+        joinBlock.setIdentifierToInstr(id, phi);    // adds {id : instr} to joinBlock's symbol table
+        instrInGeneratedOrder.add(phi);
+    }
 
+    /** when called, currentBlock is always the inner-join block */
+    public void propagateIfJoin(BasicBlock parentIf) {
+        // UNTESTED
+        // if-join block nested in if-then, fallThrough to the outer-join
+        if (parentIf.getFallThruFrom() != null && parentIf.getFallThruFrom().isBlockType(BasicBlock.BlockType.IF)) {
+            BasicBlock outerJoin = currentBlock.getFallThruTo();
+            // when propagate() is called, the inner join either be empty or only have phi functions. propagate all phi
+            for (Instruction innerPhi : currentBlock.getInstructions())
+            {
+                int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId());  // get the id that innerPhi represents
+                Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI, innerPhi,
+                        outerJoin.getBranchFrom().getIdentifierInstruction(identifierId));
+                insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
+            }
+        }
+        // if-join block nested in while-block, branches to outer-join
+        else if (parentIf.getFallThruFrom() != null && parentIf.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE)) {
+            BasicBlock outerJoin = currentBlock.getBranchTo();
+            for (Instruction innerPhi : currentBlock.getInstructions()) {
+                int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId());
+                Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI,
+                        outerJoin.getIdentifierInstruction(identifierId), innerPhi);
+                insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
+            }
+        }
+        // if-join nested in if-else, fallThrough to outer-join
+        else if (parentIf.getBranchFrom() != null){
+            BasicBlock outerJoin = currentBlock.getBranchTo();
+            for (Instruction innerPhi : currentBlock.getInstructions())
+            {
+                int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId());  // get the id that innerPhi represents
+                // check if a phi for this identifier already exists
+                if (outerJoin.containsPhiAssignment(identifierId)) {
+                    ((BinaryInstr)outerJoin.getIdentifierInstruction(identifierId)).setOp2(innerPhi);
+                }
+                else {
+                    Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI,
+                            parentIf.getBranchFrom().getIdentifierInstruction(identifierId), innerPhi);
+                    insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
+                }
+            }
+        }
     }
 
                 // ------------------------- DEBUGGING METHODS --------------------------- //
@@ -205,7 +293,7 @@ public class SSAIR
         System.out.println("              __________|__________");
         for (Instruction i : headBlock.getInstructions()) {
             System.out.printf("                    %s | %d\n",
-                                String.format("(%d)", i.getId()), ((ConstantInstruction) i).getValue());
+                                String.format("(%d)", i.getId()), ((ConstantInstr) i).getValue());
         }
         System.out.println();
         System.out.println("                _____________________");

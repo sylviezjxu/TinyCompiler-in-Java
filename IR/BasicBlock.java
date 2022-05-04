@@ -136,7 +136,13 @@ public class BasicBlock
     // --------- METHODS FOR INSTRUCTION GENERATION ---------- //
 
     public boolean isNested() {
-        return fallThruTo == null && branchTo == null;
+        return !(fallThruTo == null && branchTo == null);
+    }
+
+    public boolean nestedInThenBlock() {
+        // returns true if currentBlock (join) is nested within the then-block of an enclosing if structure
+        return fallThruTo != null && fallThruTo.isBlockType(BasicBlock.BlockType.IF_JOIN) &&
+                fallThruTo.branchFrom.isBlockType(BlockType.IF);
     }
 
     public LinkedList<Instruction> getInstructions() {
@@ -147,8 +153,9 @@ public class BasicBlock
         return symbolTable;
     }
 
-    public boolean containsAssignment(int id) {
-        return this.symbolTable.containsKey(id);
+    public boolean containsPhiAssignment(int id) {
+        return symbolTable.containsKey(id) && symbolTable.get(id) != null &&
+                symbolTable.get(id).getOpType() == Instruction.Op.PHI;
     }
 
     public void addVarDecl(int id) {
@@ -156,7 +163,7 @@ public class BasicBlock
     }
 
     public void insertInstruction(Instruction i) {
-        if (isBlockType(BlockType.WHILE) && i.getOpType() == Instruction.OP.PHI) {
+        if (isBlockType(BlockType.WHILE) && i.getOpType() == Instruction.Op.PHI) {
             this.instructions.addFirst(i);
         } else {
             this.instructions.add(i);
@@ -184,6 +191,15 @@ public class BasicBlock
                 return fallThruFrom.getIdentifierInstruction(id);
             }
         }
+    }
+
+    public int getIdentifierFromInstruction(int instrId) {
+        for (Map.Entry<Integer, Instruction> set : symbolTable.entrySet()) {
+            if (set.getValue().getId() == instrId) {
+                return set.getKey();
+            }
+        }
+        return -1;
     }
 
     public void updateSymbolTableFromParent(BasicBlock parent) {

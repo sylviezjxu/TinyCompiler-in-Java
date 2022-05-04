@@ -2,7 +2,8 @@ package frontend;
 
 import IR.BasicBlock;
 import IR.Instruction.Instruction;
-import IR.Instruction.OpInstruction;
+import IR.Instruction.BinaryInstr;
+import IR.Instruction.UnaryInstr;
 import IR.SSAIR;
 import errors.TinySyntaxError;
 
@@ -75,10 +76,10 @@ public class Parser {
             Token sym = next();
             op2 = factor();
             if (checkIfTokenIs(sym, "*")) {
-                res = new OpInstruction(Instruction.OP.MUL, op1, op2);
+                res = new BinaryInstr(Instruction.Op.MUL, op1, op2);
                 IR.insertInstrToCurrentBlock(res);
             } else {
-                res = new OpInstruction(Instruction.OP.DIV, op1, op2);
+                res = new BinaryInstr(Instruction.Op.DIV, op1, op2);
                 IR.insertInstrToCurrentBlock(res);
             }
             op1 = res;
@@ -96,10 +97,10 @@ public class Parser {
             Token sym = next();
             op2 = term();
             if (checkIfTokenIs(sym, "+")) {
-                res = new OpInstruction(Instruction.OP.ADD, op1, op2);
+                res = new BinaryInstr(Instruction.Op.ADD, op1, op2);
                 IR.insertInstrToCurrentBlock(res);
             } else {
-                res = new OpInstruction(Instruction.OP.SUB, op1, op2);
+                res = new BinaryInstr(Instruction.Op.SUB, op1, op2);
                 IR.insertInstrToCurrentBlock(res);
             }
             op1 = res;
@@ -117,7 +118,7 @@ public class Parser {
         if (peek().isRelationalOp()) {
             Token relOp = next();         // consumes relOp
             Instruction expr2 = expression();
-            IR.insertInstrToCurrentBlock( new OpInstruction(Instruction.OP.CMP, expr1, expr2) );
+            IR.insertInstrToCurrentBlock( new BinaryInstr(Instruction.Op.CMP, expr1, expr2) );
             IR.insertInstrToCurrentBlock( computeRelOpBranchInstr(relOp, expr1, expr2) );
         } else {
             error("Invalid relation");
@@ -146,7 +147,7 @@ public class Parser {
         if (checkIfTokenIs(funcName, "InputNum")) {
             next();
             next();
-            Instruction toAdd = new Instruction(Instruction.OP.READ);
+            Instruction toAdd = new Instruction(Instruction.Op.READ);
             IR.insertInstrToCurrentBlock(toAdd);
             return toAdd;
         }
@@ -166,13 +167,13 @@ public class Parser {
             next();     // consumes "("
             Token arg = next();
             next();     // consumes ")"
-            Instruction toAdd = new OpInstruction(Instruction.OP.WRITE, IR.getIdentifierInstruction(arg.getIdValue()), null);
+            Instruction toAdd = new UnaryInstr(Instruction.Op.WRITE, IR.getIdentifierInstruction(arg.getIdValue()));
             IR.insertInstrToCurrentBlock(toAdd);
         }
         else if (checkIfTokenIs(funcName, "OutputNewLine")) {
             next();
             next();
-            Instruction toAdd = new Instruction(Instruction.OP.WRITENL);
+            Instruction toAdd = new Instruction(Instruction.Op.WRITENL);
             IR.insertInstrToCurrentBlock(toAdd);
         }
         else {
@@ -226,7 +227,7 @@ public class Parser {
         IR.setCurrentBlock(IR.findJoinBlock());             // set current to current's join
         if (IR.getCurrentBlock().isNested()) {
             // propagate phi, the join block should only have phi functions
-            IR.propagateIfJoin();
+            IR.propagateIfJoin(current);
         } else {        // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
             IR.getCurrentBlock().updateSymbolTableFromParent(current);
         }
@@ -241,8 +242,9 @@ public class Parser {
         next();     // consumes "do"
         IR.setCurrentBlock(current.getFallThruTo());        // current = while-body
         statementSequence();
+
         // need to assign branch target later !!!!
-        IR.insertInstrToCurrentBlock(new OpInstruction(Instruction.OP.BRA, null, null));
+        IR.insertInstrToCurrentBlock(new UnaryInstr(Instruction.Op.BRA, null));
         next();     // consumes "od"
         IR.setCurrentBlock(current.getBranchTo());          // current = while-follow
         // if whileFollow is un-nested, update its Symbol Table to have all updated variable values
@@ -377,22 +379,22 @@ public class Parser {
     private Instruction computeRelOpBranchInstr(Token relOp, Instruction expr1, Instruction expr2) {
         // target Instruction has to be updated later else/join block has been generated
         if (checkIfTokenIs(relOp, "==")) {
-            return new OpInstruction(Instruction.OP.BNE, null, null);
+            return new UnaryInstr(Instruction.Op.BNE, null);
         }
         else if (checkIfTokenIs(relOp, "!=")) {
-            return new OpInstruction(Instruction.OP.BEQ, null, null);
+            return new UnaryInstr(Instruction.Op.BEQ, null);
         }
         else if (checkIfTokenIs(relOp, "<")) {
-            return new OpInstruction(Instruction.OP.BGE, null, null);
+            return new UnaryInstr(Instruction.Op.BGE, null);
         }
         else if (checkIfTokenIs(relOp, "<=")) {
-            return new OpInstruction(Instruction.OP.BGT, null, null);
+            return new UnaryInstr(Instruction.Op.BGT, null);
         }
         else if (checkIfTokenIs(relOp, ">")) {
-            return new OpInstruction(Instruction.OP.BLE, null, null);
+            return new UnaryInstr(Instruction.Op.BLE, null);
         }
         else {      // ">="
-            return new OpInstruction(Instruction.OP.BLT, null, null);
+            return new UnaryInstr(Instruction.Op.BLT, null);
         }
     }
 
@@ -428,7 +430,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/SSA/simple-while.tiny");
+        Lexer lexer = new Lexer("tests/SSA/if-while-empty-join.tiny");
         Parser parser = new Parser(lexer);
     }
 
