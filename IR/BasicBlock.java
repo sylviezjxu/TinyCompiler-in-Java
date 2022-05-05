@@ -210,4 +210,15 @@ public class BasicBlock
             }
         }
     }
+
+    /** a really random method that returns the id of the first instruction in the while block that is not phi
+     *  (used for while-phi-propagation) */
+    public int getFirstNonPhiInstrId() {
+        for (Instruction instr : instructions) {
+            if (instr.getOpType() != Instruction.Op.PHI) {
+                return instr.getId();
+            }
+        }
+        return -1;
+    }
 }

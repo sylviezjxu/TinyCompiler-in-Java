@@ -8,9 +8,9 @@ public class Instruction
     private final Op opType;
 
     public enum Op {
-        CONST, NEG, LOAD,
-        ADD, SUB, MUL, DIV,
-        CMP, STORE, PHI,
+        CONST, NEG,
+        ADD, SUB, MUL, DIV, CMP,
+        ADDA, LOAD, STORE, PHI, END,
         BRA, BNE, BEQ,
         BLE, BLT, BGE, BGT,
         READ, WRITE, WRITENL
@@ -27,6 +27,17 @@ public class Instruction
 
     public int getId() {
         return id;
+    }
+
+    public boolean isBinary() {
+        return opType == Op.ADD || opType == Op.SUB || opType == Op.MUL || opType == Op.DIV ||
+                opType == Op.CMP || opType == Op.STORE || opType == Op.PHI;
+    }
+
+    public boolean isUnary() {
+        return opType == Op.NEG || opType == Op.LOAD || opType == Op.BRA || opType == Op.BNE ||
+                opType == Op.BEQ || opType == Op.BLE || opType == Op.BLT || opType == Op.BGE ||
+                opType == Op.BGT || opType == Op.WRITE;
     }
 
     public String toString() {

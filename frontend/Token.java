@@ -5,7 +5,7 @@ package frontend;// TOKEN class
 public class Token {
 
     private TokenType tokenType;      // SYMBOL, IDENTIFIER, LITERAL
-    private int get;                // Id for symbol & identifier, value for literal
+    private final int get;                // Id for symbol & identifier, value for literal
 
     public enum TokenType {
         SYMBOL,

@@ -15,6 +15,12 @@ public class Parser {
     private final Lexer lexer;
     private final SSAIR IR;
 
+    // helper variables for mapping identifier to instruction operands
+    private boolean termIsVarRef = false;
+    private Integer termVarRefId;
+    private boolean exprIsVarRef = false;
+    private Integer exprVarRefId;
+
     public Parser(Lexer lexer) {
         this.lexer = lexer;
         this.IR = new SSAIR();
@@ -71,20 +77,38 @@ public class Parser {
         // DONE
         System.out.println("term");
         Instruction op1, op2, res;
+        // check if op is a variable ref, if so, store its Identifier reference if an instruction is generated here
+        Integer op1IdRef = checkVarRefFactor(peek());
+        Integer op2IdRef;
         op1 = res = factor();
         while (checkIfTokenIs(peek(), "*") || checkIfTokenIs(peek(), "/") ) {
-            Token sym = next();
+            Token sym = next();     // consumes "*" or "/"
+            op2IdRef = checkVarRefFactor(peek());
             op2 = factor();
             if (checkIfTokenIs(sym, "*")) {
                 res = new BinaryInstr(Instruction.Op.MUL, op1, op2);
-                IR.insertInstrToCurrentBlock(res);
             } else {
                 res = new BinaryInstr(Instruction.Op.DIV, op1, op2);
-                IR.insertInstrToCurrentBlock(res);
             }
+            ((BinaryInstr)res).setOpIdReferences(op1IdRef, op2IdRef);
+            IR.insertInstrToCurrentBlock(res);
             op1 = res;
+            op1IdRef = null;
+            termIsVarRef = false;
         }
         return res;
+    }
+
+    /**  */
+    private Integer checkVarRefFactor(Token peek) {
+        if (peek.isUserDefinedIdentifier()) {
+            termIsVarRef = true;
+            termVarRefId = peek.getIdValue();
+            return peek.getIdValue();
+        }
+        else {
+            return null;
+        }
     }
 
     /** expression() returns the Instruction object that is the value of the expressionn */
@@ -93,19 +117,38 @@ public class Parser {
         System.out.println("expression");
         Instruction op1, op2, res;
         op1 = res = term();
+        // check if expression is expression term is a varRef
+        Integer op1IdRef = checkVarRefTerm();
+        Integer op2IdRef;
+
         while (checkIfTokenIs(peek(), "+") || checkIfTokenIs(peek(), "-") ) {
             Token sym = next();
             op2 = term();
+            op2IdRef = checkVarRefTerm();
             if (checkIfTokenIs(sym, "+")) {
                 res = new BinaryInstr(Instruction.Op.ADD, op1, op2);
-                IR.insertInstrToCurrentBlock(res);
             } else {
                 res = new BinaryInstr(Instruction.Op.SUB, op1, op2);
-                IR.insertInstrToCurrentBlock(res);
             }
+            ((BinaryInstr)res).setOpIdReferences(op1IdRef, op2IdRef);
+            IR.insertInstrToCurrentBlock(res);
             op1 = res;
+            op1IdRef = null;
+            exprIsVarRef = false;
         }
         return res;
+    }
+
+    private Integer checkVarRefTerm() {
+        if (termIsVarRef) {
+            termIsVarRef = false;
+            exprIsVarRef = true;
+            exprVarRefId = termVarRefId;
+            return termVarRefId;
+        }
+        else {
+            return null;
+        }
     }
 
     /** relation() does not return any Instruction, it adds cmp & bra instructions to the right block,
@@ -114,14 +157,29 @@ public class Parser {
         // DONE
         System.out.println("relation");
         Instruction expr1 = expression();
+        Integer op1IdRef = checkVarRefExpr();
+        Integer op2IdRef;
         System.out.println("relational comparison: " + lexer.debugToken(peek()));
         if (peek().isRelationalOp()) {
             Token relOp = next();         // consumes relOp
             Instruction expr2 = expression();
-            IR.insertInstrToCurrentBlock( new BinaryInstr(Instruction.Op.CMP, expr1, expr2) );
+            op2IdRef = checkVarRefExpr();
+            BinaryInstr cmpInstr = new BinaryInstr(Instruction.Op.CMP, expr1, expr2);
+            cmpInstr.setOpIdReferences(op1IdRef, op2IdRef);
+            IR.insertInstrToCurrentBlock( cmpInstr );
             IR.insertInstrToCurrentBlock( computeRelOpBranchInstr(relOp, expr1, expr2) );
         } else {
             error("Invalid relation");
+        }
+    }
+
+    private Integer checkVarRefExpr() {
+        if (exprIsVarRef) {
+            exprIsVarRef = false;
+            return exprVarRefId;
+        }
+        else {
+            return null;
         }
     }
 
@@ -167,7 +225,8 @@ public class Parser {
             next();     // consumes "("
             Token arg = next();
             next();     // consumes ")"
-            Instruction toAdd = new UnaryInstr(Instruction.Op.WRITE, IR.getIdentifierInstruction(arg.getIdValue()));
+            UnaryInstr toAdd = new UnaryInstr(Instruction.Op.WRITE, IR.getIdentifierInstruction(arg.getIdValue()));
+            toAdd.setOpIdReference(arg.getIdValue());
             IR.insertInstrToCurrentBlock(toAdd);
         }
         else if (checkIfTokenIs(funcName, "OutputNewLine")) {
@@ -225,12 +284,12 @@ public class Parser {
         }
         next();     // consumes "fi"
         IR.setCurrentBlock(IR.findJoinBlock());             // set current to current's join
-        if (IR.getCurrentBlock().isNested()) {
-            // propagate phi, the join block should only have phi functions
-            IR.propagateIfJoin(current);
-        } else {        // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
+        IR.propagateNestedIf(current);                           // propagate phi, the join block should only have phi functions
+        if (!IR.getCurrentBlock().isNested()) {
+            // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
             IR.getCurrentBlock().updateSymbolTableFromParent(current);
         }
+
     }
 
     public void whileStatement() {
@@ -242,11 +301,11 @@ public class Parser {
         next();     // consumes "do"
         IR.setCurrentBlock(current.getFallThruTo());        // current = while-body
         statementSequence();
-
         // need to assign branch target later !!!!
         IR.insertInstrToCurrentBlock(new UnaryInstr(Instruction.Op.BRA, null));
         next();     // consumes "od"
         IR.setCurrentBlock(current.getBranchTo());          // current = while-follow
+        IR.propagateNestedIf(current);           // propagate if nested
         // if whileFollow is un-nested, update its Symbol Table to have all updated variable values
         if (!IR.getCurrentBlock().isNested()) {
             IR.getCurrentBlock().updateSymbolTableFromParent(current);
@@ -430,7 +489,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/SSA/if-while-empty-join.tiny");
+        Lexer lexer = new Lexer("tests/SSA/while-propagation-test.tiny");
         Parser parser = new Parser(lexer);
     }
 

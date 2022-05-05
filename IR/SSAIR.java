@@ -3,6 +3,7 @@ package IR;
 import IR.Instruction.ConstantInstr;
 import IR.Instruction.Instruction;
 import IR.Instruction.BinaryInstr;
+import IR.Instruction.UnaryInstr;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -163,7 +164,6 @@ public class SSAIR
     public void assign(int id, Instruction value)
     {
         this.currentBlock.setIdentifierToInstr(id, value);
-
         /** CASE I
          *        1) currentBlock = IF_THEN block
          *        2) currentBlock is the join/follow block of an if=/while- structure nested within the THEN-BLOCK of an enclosing
@@ -177,13 +177,15 @@ public class SSAIR
          *
          *  value = FIRST operand of phi, look for second operand in enclosing if-Block's symbol table
          *  */
-        if (currentBlock.isBlockType(BasicBlock.BlockType.IF_THEN) || currentBlock.nestedInThenBlock()) {
+        if ( currentBlock.nestedInThenBlock() ) {
             BasicBlock joinBlock = currentBlock.getFallThruTo();
+            // here can assume if the joinBlock has this id in symbol Table, it must be a phi function for this identifier
             if (joinBlock.containsPhiAssignment(id)) {
                 ((BinaryInstr)joinBlock.getIdentifierInstruction(id)).setOp1(value);
             }
             else {
                 Instruction phi = new BinaryInstr(Instruction.Op.PHI, value, joinBlock.getBranchFrom().getIdentifierInstruction(id));
+                ((BinaryInstr)phi).setOpIdReferences(id, id);
                 insertPhiToJoinBlock(joinBlock, id, phi);
             }
         }
@@ -200,8 +202,7 @@ public class SSAIR
          *  */
         // order of phi operands differ between then/else blocks
         // also check to recognize assignments after if-join of nested if structures and generate phi accordingly
-        else if (currentBlock.isBlockType(BasicBlock.BlockType.IF_ELSE) ||
-                currentBlock.getFallThruTo() != null && currentBlock.getFallThruTo().isBlockType(BasicBlock.BlockType.IF_JOIN)) {
+        else if ( currentBlock.getFallThruTo() != null && currentBlock.getFallThruTo().isBlockType(BasicBlock.BlockType.IF_JOIN) ) {
             BasicBlock joinBlock = currentBlock.getFallThruTo();
             // check if this phi already exists. if this id has already been assigned in joinBlock, it has an existing phi.
             if (joinBlock.containsPhiAssignment(id)) {
@@ -209,6 +210,7 @@ public class SSAIR
             }
             else {
                 Instruction phi = new BinaryInstr(Instruction.Op.PHI, currentBlock.getBranchFrom().getIdentifierInstruction(id), value);
+                ((BinaryInstr)phi).setOpIdReferences(id, id);
                 insertPhiToJoinBlock(joinBlock, id, phi);
             }
         }
@@ -220,17 +222,18 @@ public class SSAIR
          *  value = SECOND operand of phi, look for first operand in the parent of the WHILE-BLOCK of the enclosing
          *  while-structure.
          * */
-        else if (currentBlock.isBlockType(BasicBlock.BlockType.WHILE_BODY) ||
-                currentBlock.getBranchTo() != null && currentBlock.getBranchTo().isBlockType(BasicBlock.BlockType.WHILE) ) {
+        else if ( currentBlock.getBranchTo() != null && currentBlock.getBranchTo().isBlockType(BasicBlock.BlockType.WHILE) ) {
             BasicBlock joinBlock = currentBlock.getBranchTo();
-            // the assumption is if the joinBlock has this id in symbol Table, it must be a phi function for this identifier
+            // here id might exist in symbol table and be null (var decl- no instruction so no new fallthru), have to check for phi
             if (joinBlock.containsPhiAssignment(id)) {
                 ((BinaryInstr)joinBlock.getIdentifierInstruction(id)).setOp2(value);
             }
             else {
-                // PROBLEM: CAN it just be joinBlock.getIdentifierInstruction() ?
-                Instruction phi = new BinaryInstr(Instruction.Op.PHI, joinBlock.getIdentifierInstruction(id), value);
+                Instruction oldValue = joinBlock.getIdentifierInstruction(id);
+                Instruction phi = new BinaryInstr(Instruction.Op.PHI, oldValue, value);
+                ((BinaryInstr)phi).setOpIdReferences(id, id);
                 insertPhiToJoinBlock(joinBlock, id, phi);
+                propagateWhilePhi(joinBlock, id, oldValue, phi);        // for while join-blocks, replace all uses of the identifier to the new result
             }
         }
     }
@@ -241,33 +244,70 @@ public class SSAIR
         instrInGeneratedOrder.add(phi);
     }
 
+    /** takes an identifierId because the instructions that get replaced while propagating not only need to be
+     *  referring to the same instruction, it also needs to be referring to the same specific identifier, as the same
+     *  instruction reference could be referring to different identifiers. */
+    public void propagateWhilePhi(BasicBlock whileBlock, int identId, Instruction oldValue, Instruction newValue) {
+        int start = whileBlock.getFirstNonPhiInstrId(); // first instruction id in whileBlock thats not phi
+        int end = newValue.getId();
+        for (int i = start; i < end; i++) {
+            Instruction curr = instrInGeneratedOrder.get(i);
+            if (curr.isBinary()) {
+                ((BinaryInstr)curr).replaceOperands(identId, oldValue, newValue);
+            }
+            else if (curr.isUnary()) {
+                ((UnaryInstr)curr).replaceOperand(identId, oldValue, newValue);
+            }
+        }
+    }
+
     /** when called, currentBlock is always the inner-join block */
-    public void propagateIfJoin(BasicBlock parentIf) {
+    public void propagateNestedIf(BasicBlock parentBlock) {
         // UNTESTED
         // if-join block nested in if-then, fallThrough to the outer-join
-        if (parentIf.getFallThruFrom() != null && parentIf.getFallThruFrom().isBlockType(BasicBlock.BlockType.IF)) {
+        if (parentBlock.getFallThruFrom() != null && parentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.IF)) {
             BasicBlock outerJoin = currentBlock.getFallThruTo();
             // when propagate() is called, the inner join either be empty or only have phi functions. propagate all phi
             for (Instruction innerPhi : currentBlock.getInstructions())
             {
                 int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId());  // get the id that innerPhi represents
-                Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI, innerPhi,
-                        outerJoin.getBranchFrom().getIdentifierInstruction(identifierId));
-                insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
+                if (outerJoin.containsPhiAssignment(identifierId)) {
+                    ((BinaryInstr)outerJoin.getIdentifierInstruction(identifierId)).setOp1(innerPhi);
+                }
+                else {
+                    Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI, innerPhi,
+                            outerJoin.getBranchFrom().getIdentifierInstruction(identifierId));
+                    ((BinaryInstr)outerPhi).setOpIdReferences(
+                            ((BinaryInstr)innerPhi).getOp1IdReference(),
+                            ((BinaryInstr)innerPhi).getOp2IdReference()
+                    );
+                    insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
+                }
             }
         }
         // if-join block nested in while-block, branches to outer-join
-        else if (parentIf.getFallThruFrom() != null && parentIf.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE)) {
+        // NEED TO PROPAGATE
+        else if (parentBlock.getFallThruFrom() != null && parentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE)) {
             BasicBlock outerJoin = currentBlock.getBranchTo();
             for (Instruction innerPhi : currentBlock.getInstructions()) {
-                int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId());
-                Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI,
-                        outerJoin.getIdentifierInstruction(identifierId), innerPhi);
-                insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
+                int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId()); // identifier represented by this phi
+                if (outerJoin.containsPhiAssignment(identifierId)) {
+                    ((BinaryInstr)outerJoin.getIdentifierInstruction(identifierId)).setOp2(innerPhi);
+                }
+                else {
+                    Instruction oldValue = outerJoin.getIdentifierInstruction(identifierId);
+                    Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI, oldValue, innerPhi);
+                    ((BinaryInstr)outerPhi).setOpIdReferences(
+                            ((BinaryInstr)innerPhi).getOp1IdReference(),
+                            ((BinaryInstr)innerPhi).getOp2IdReference()
+                    );
+                    insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
+                    propagateWhilePhi(outerJoin, identifierId, oldValue, outerPhi);
+                }
             }
         }
         // if-join nested in if-else, fallThrough to outer-join
-        else if (parentIf.getBranchFrom() != null){
+        else if (parentBlock.getBranchFrom() != null){
             BasicBlock outerJoin = currentBlock.getBranchTo();
             for (Instruction innerPhi : currentBlock.getInstructions())
             {
@@ -278,12 +318,18 @@ public class SSAIR
                 }
                 else {
                     Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI,
-                            parentIf.getBranchFrom().getIdentifierInstruction(identifierId), innerPhi);
+                            parentBlock.getBranchFrom().getIdentifierInstruction(identifierId), innerPhi);
+                    ((BinaryInstr)outerPhi).setOpIdReferences(
+                            ((BinaryInstr)innerPhi).getOp1IdReference(),
+                            ((BinaryInstr)innerPhi).getOp2IdReference()
+                    );
                     insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
                 }
             }
         }
     }
+
+
 
                 // ------------------------- DEBUGGING METHODS --------------------------- //
 
