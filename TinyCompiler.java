@@ -1,4 +1,5 @@
-package frontend;
+import frontend.Lexer;
+import frontend.Parser;
 
 public class TinyCompiler {
 

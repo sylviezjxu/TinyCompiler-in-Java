@@ -305,6 +305,7 @@ public class Parser {
         IR.insertInstrToCurrentBlock(new UnaryInstr(Instruction.Op.BRA, null));
         next();     // consumes "od"
         IR.setCurrentBlock(current.getBranchTo());          // current = while-follow
+        // migh t need to change later to have nest while's own method
         IR.propagateNestedIf(current);           // propagate if nested
         // if whileFollow is un-nested, update its Symbol Table to have all updated variable values
         if (!IR.getCurrentBlock().isNested()) {
@@ -489,7 +490,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/SSA/while-propagation-test.tiny");
+        Lexer lexer = new Lexer("tests/SSA/while-if-if.tiny");
         Parser parser = new Parser(lexer);
     }
 

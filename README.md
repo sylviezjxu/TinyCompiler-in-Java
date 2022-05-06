@@ -1,1 +1,1 @@
-# frontend.TinyCompiler-in-Java
+# TinyCompiler-in-Java

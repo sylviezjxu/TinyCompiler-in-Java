@@ -14,7 +14,7 @@ import java.util.Objects;
  *  */
 public class SSAIR
 {
-    private ArrayList<Instruction> instrInGeneratedOrder;  // <- for propogating phi's in while CFG
+    private final ArrayList<Instruction> instrInGeneratedOrder;  // <- for propogating phi's in while CFG
     private final BasicBlock headBlock;
     private BasicBlock currentBlock;
 
@@ -184,8 +184,8 @@ public class SSAIR
                 ((BinaryInstr)joinBlock.getIdentifierInstruction(id)).setOp1(value);
             }
             else {
-                Instruction phi = new BinaryInstr(Instruction.Op.PHI, value, joinBlock.getBranchFrom().getIdentifierInstruction(id));
-                ((BinaryInstr)phi).setOpIdReferences(id, id);
+                BinaryInstr phi = new BinaryInstr(Instruction.Op.PHI, value, joinBlock.getBranchFrom().getIdentifierInstruction(id));
+                phi.setOpIdReferences(id, id);
                 insertPhiToJoinBlock(joinBlock, id, phi);
             }
         }
@@ -209,8 +209,8 @@ public class SSAIR
                 ((BinaryInstr)joinBlock.getIdentifierInstruction(id)).setOp2(value);
             }
             else {
-                Instruction phi = new BinaryInstr(Instruction.Op.PHI, currentBlock.getBranchFrom().getIdentifierInstruction(id), value);
-                ((BinaryInstr)phi).setOpIdReferences(id, id);
+                BinaryInstr phi = new BinaryInstr(Instruction.Op.PHI, currentBlock.getBranchFrom().getIdentifierInstruction(id), value);
+                phi.setOpIdReferences(id, id);
                 insertPhiToJoinBlock(joinBlock, id, phi);
             }
         }
@@ -230,8 +230,8 @@ public class SSAIR
             }
             else {
                 Instruction oldValue = joinBlock.getIdentifierInstruction(id);
-                Instruction phi = new BinaryInstr(Instruction.Op.PHI, oldValue, value);
-                ((BinaryInstr)phi).setOpIdReferences(id, id);
+                BinaryInstr phi = new BinaryInstr(Instruction.Op.PHI, oldValue, value);
+                phi.setOpIdReferences(id, id);
                 insertPhiToJoinBlock(joinBlock, id, phi);
                 propagateWhilePhi(joinBlock, id, oldValue, phi);        // for while join-blocks, replace all uses of the identifier to the new result
             }
@@ -261,7 +261,8 @@ public class SSAIR
         }
     }
 
-    /** when called, currentBlock is always the inner-join block */
+    /** when called, currentBlock is always the inner-join block. Takes in an argument parentBlock that is the if-block
+     *  of the inner if-structure. */
     public void propagateNestedIf(BasicBlock parentBlock) {
         // UNTESTED
         // if-join block nested in if-then, fallThrough to the outer-join
@@ -275,12 +276,10 @@ public class SSAIR
                     ((BinaryInstr)outerJoin.getIdentifierInstruction(identifierId)).setOp1(innerPhi);
                 }
                 else {
-                    Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI, innerPhi,
+                    BinaryInstr outerPhi = new BinaryInstr(Instruction.Op.PHI, innerPhi,
                             outerJoin.getBranchFrom().getIdentifierInstruction(identifierId));
-                    ((BinaryInstr)outerPhi).setOpIdReferences(
-                            ((BinaryInstr)innerPhi).getOp1IdReference(),
-                            ((BinaryInstr)innerPhi).getOp2IdReference()
-                    );
+                    outerPhi.setOpIdReferences( ((BinaryInstr)innerPhi).getOp1IdReference(),
+                                                ((BinaryInstr)innerPhi).getOp2IdReference() );
                     insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
                 }
             }
@@ -296,19 +295,18 @@ public class SSAIR
                 }
                 else {
                     Instruction oldValue = outerJoin.getIdentifierInstruction(identifierId);
-                    Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI, oldValue, innerPhi);
-                    ((BinaryInstr)outerPhi).setOpIdReferences(
-                            ((BinaryInstr)innerPhi).getOp1IdReference(),
-                            ((BinaryInstr)innerPhi).getOp2IdReference()
-                    );
+                    BinaryInstr outerPhi = new BinaryInstr(Instruction.Op.PHI, oldValue, innerPhi);
+                    outerPhi.setOpIdReferences( ((BinaryInstr)innerPhi).getOp1IdReference(),
+                                                ((BinaryInstr)innerPhi).getOp2IdReference() );
                     insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
                     propagateWhilePhi(outerJoin, identifierId, oldValue, outerPhi);
                 }
+
             }
         }
         // if-join nested in if-else, fallThrough to outer-join
         else if (parentBlock.getBranchFrom() != null){
-            BasicBlock outerJoin = currentBlock.getBranchTo();
+            BasicBlock outerJoin = currentBlock.getFallThruTo();
             for (Instruction innerPhi : currentBlock.getInstructions())
             {
                 int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId());  // get the id that innerPhi represents
@@ -317,19 +315,17 @@ public class SSAIR
                     ((BinaryInstr)outerJoin.getIdentifierInstruction(identifierId)).setOp2(innerPhi);
                 }
                 else {
-                    Instruction outerPhi = new BinaryInstr(Instruction.Op.PHI,
+                    // if this phi does not exist in the outerJoin, that means the then block of the outer-if did not modify it,
+                    // can just obtain other phi operand from outer-if-block
+                    BinaryInstr outerPhi = new BinaryInstr(Instruction.Op.PHI,
                             parentBlock.getBranchFrom().getIdentifierInstruction(identifierId), innerPhi);
-                    ((BinaryInstr)outerPhi).setOpIdReferences(
-                            ((BinaryInstr)innerPhi).getOp1IdReference(),
-                            ((BinaryInstr)innerPhi).getOp2IdReference()
-                    );
+                    outerPhi.setOpIdReferences( ((BinaryInstr)innerPhi).getOp1IdReference(),
+                                                ((BinaryInstr)innerPhi).getOp2IdReference() );
                     insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
                 }
             }
         }
     }
-
-
 
                 // ------------------------- DEBUGGING METHODS --------------------------- //
 
