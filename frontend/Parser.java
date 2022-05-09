@@ -1,6 +1,6 @@
 package frontend;
 
-import IR.BasicBlock;
+import IR.BasicBlock.BasicBlock;
 import IR.Instruction.Instruction;
 import IR.Instruction.BinaryInstr;
 import IR.Instruction.UnaryInstr;

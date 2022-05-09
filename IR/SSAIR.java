@@ -1,5 +1,6 @@
 package IR;
 
+import IR.BasicBlock.BasicBlock;
 import IR.Instruction.ConstantInstr;
 import IR.Instruction.Instruction;
 import IR.Instruction.BinaryInstr;

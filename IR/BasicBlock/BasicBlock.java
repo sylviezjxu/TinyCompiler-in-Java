@@ -1,4 +1,4 @@
-package IR;
+package IR.BasicBlock;
 
 import IR.Instruction.Instruction;
 
