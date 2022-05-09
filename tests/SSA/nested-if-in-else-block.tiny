@@ -1,0 +1,26 @@
+main
+var a, b, c;
+{
+    let a <- call InputNum();
+    let b <- call InputNum();
+    let c <- b;
+
+    if b < a then
+        let b <- b + 1;
+        if c < 0 then
+            let c <- c + 1;
+            let b <- b + 9;
+        fi;
+    else
+       if c < 0 then
+           let c <- a + 1;
+       else
+            call OutputNum(c);
+       fi;
+       let a <- c + 1;
+    fi;
+
+    call OutputNum(a);
+    call OutputNum(b);
+    call OutputNum(c);
+}.

@@ -139,8 +139,9 @@ public class BasicBlock
         return !(fallThruTo == null && branchTo == null);
     }
 
+    /** returns true if currentBlock (join) is nested within the then-block of an enclosing if structure. Need the third
+     *  condition bc elseBlock also falls through to joinBlock */
     public boolean nestedInThenBlock() {
-        // returns true if currentBlock (join) is nested within the then-block of an enclosing if structure
         return fallThruTo != null && fallThruTo.isBlockType(BasicBlock.BlockType.IF_JOIN) &&
                 fallThruTo.branchFrom.isBlockType(BlockType.IF);
     }
@@ -164,25 +165,30 @@ public class BasicBlock
 
     public void insertInstruction(Instruction i) {
         if (isBlockType(BlockType.WHILE) && i.getOpType() == Instruction.Op.PHI) {
-            this.instructions.addFirst(i);
-        } else {
-            this.instructions.add(i);
+            int index = instructions.size()-2;
+            instructions.add(index, i);
+        }
+        // remove dummy instruction
+        else if (instructions.size() >= 1 && instructions.getFirst().getOpType() == Instruction.Op.BRANCH_TO) {
+            instructions.removeFirst();
+            instructions.add(i);
+        }
+        else {
+            instructions.add(i);
         }
     }
 
-    /** */
+    /** adds the id:instruction pair if not exists in currentBlock, if exists, overrides the current value */
     public void setIdentifierToInstr(int id, Instruction i) {
         symbolTable.put(id, i);
     }
 
     /** rely on each individual block to be able to locate the most recent definition of a variable */
-    // UNTESTED
     public Instruction getIdentifierInstruction(int id) {
         if (symbolTable.containsKey(id)) {
             return symbolTable.get(id);
         } else {
             // ifThen, ifElse, ifJoin, whileBody, whileFollow
-            // search upward until find if/while, maybe recursive call
             if (isBlockType(BlockType.IF_ELSE) || isBlockType(BlockType.WHILE_FOLLOW)) {
                 return branchFrom.getIdentifierInstruction(id);
             }
@@ -193,6 +199,8 @@ public class BasicBlock
         }
     }
 
+    /** return the identifier ID given an instruction ID. used in PropagateNestedWhile() to find the identifier id referred
+     *  to by a certain phi */
     public int getIdentifierFromInstruction(int instrId) {
         for (Map.Entry<Integer, Instruction> set : symbolTable.entrySet()) {
             if (set.getValue().getId() == instrId) {
@@ -202,14 +210,25 @@ public class BasicBlock
         return -1;
     }
 
+    /** gives currentBlock a complete copy of its parent's symbolTable */
     public void updateSymbolTableFromParent(BasicBlock parent) {
         HashMap<Integer, Instruction> parentSymTab = parent.getSymbolTable();
+        // for while blocks, their fallThruFrom contains the complete symtab
         for (Map.Entry<Integer, Instruction> pair : parentSymTab.entrySet()) {
             if (!symbolTable.containsKey(pair.getKey())) {
                 symbolTable.put(pair.getKey(), pair.getValue());
             }
         }
+        if (parent.isBlockType(BlockType.WHILE) && parent.getFallThruFrom() != null) {
+            HashMap<Integer, Instruction> parentFallThru = parent.getFallThruFrom().getSymbolTable();
+            for (Map.Entry<Integer, Instruction> pair : parentFallThru.entrySet()) {
+                if (!symbolTable.containsKey(pair.getKey())) {
+                    symbolTable.put(pair.getKey(), pair.getValue());
+                }
+            }
+        }
     }
+
 
     /**  random method that returns the id of the first instruction in the while block that is not phi
      *  (used for while-phi-propagation) */
@@ -220,5 +239,9 @@ public class BasicBlock
             }
         }
         return -1;
+    }
+
+    public Instruction getFirstInstr() {
+        return instructions.getFirst();
     }
 }

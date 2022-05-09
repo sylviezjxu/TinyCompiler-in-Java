@@ -5,20 +5,18 @@ var a, b, c;
     let b <- call InputNum();
     let c <- call InputNum();
 
-    if b < 0
-    then
+    if b < 0 then
         let b <- b + 1;
-        if c < 0
-        then
+        if c < 0 then
             let c <- c + 1;
         fi;
     else
         let b <- b + 2;
     fi;
-    if c < 0
-        then
-            let a <- a + 99;
-        fi;
+
+    if c < 0 then
+        let a <- a + 99;
+    fi;
     let a <- a + 1;
 
 	call OutputNum(a);

@@ -269,49 +269,48 @@ public class Parser {
         // DONE
         System.out.println("if statement");
         next();     // consumes "if"
-        BasicBlock current = IR.enterIf();      // current = ifBlock
-        relation();                        // cmp instructions get added to the current block
+        BasicBlock parent = IR.enterIf();      // parent = ifBlock
+        relation();                        // cmp instructions get added to the parent block
         next();     // consumes "then"
-        IR.setCurrentBlock(current.getFallThruTo());      // set current to current's then-block
+        IR.setCurrentBlock(parent.getFallThruTo());      // set current to parent's then-block
         statementSequence();
         if (checkIfTokenIs(peek(), "else")) {
             System.out.println("else");
             next();
-            IR.setCurrentBlock(current);
+            IR.setCurrentBlock(parent);
             IR.generateElseBlock();
-            IR.setCurrentBlock(current.getBranchTo());       // set current to current's else-block
+            IR.setCurrentBlock(parent.getBranchTo());       // set current to parent's else-block
             statementSequence();
         }
+        IR.setBranchInstr(parent);          // set branch instr after generating then/else/join
         next();     // consumes "fi"
-        IR.setCurrentBlock(IR.findJoinBlock());             // set current to current's join
-        IR.propagateNestedIf(current);                           // propagate phi, the join block should only have phi functions
+        IR.setCurrentBlock(IR.findJoinBlock());             // set current to parent's join
+        IR.propagateNestedIf(parent);                           // propagate phi, the join block should only have phi functions
         if (!IR.getCurrentBlock().isNested()) {
             // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
-            IR.getCurrentBlock().updateSymbolTableFromParent(current);
+            IR.getCurrentBlock().updateSymbolTableFromParent(parent);
         }
-
     }
 
     public void whileStatement() {
         // DONE
         System.out.println("while statement");
         next();     // consumes "while"
-        BasicBlock current = IR.enterWhile();       // current = whileBlock
+        BasicBlock parent = IR.enterWhile();       // parent = whileBlock
         relation();         // cmp instructions get added to while-block
         next();     // consumes "do"
-        IR.setCurrentBlock(current.getFallThruTo());        // current = while-body
+        IR.setCurrentBlock(parent.getFallThruTo());        // parent = while-body
         statementSequence();
-        // need to assign branch target later !!!!
-        IR.insertInstrToCurrentBlock(new UnaryInstr(Instruction.Op.BRA, null));
+        IR.insertInstrToCurrentBlock( new UnaryInstr(Instruction.Op.BRA, parent.getFirstInstr()) );
+        IR.setBranchInstr(parent);
         next();     // consumes "od"
-        IR.setCurrentBlock(current.getBranchTo());          // current = while-follow
-        // migh t need to change later to have nest while's own method
-        IR.propagateNestedIf(current);           // propagate if nested
+        IR.setCurrentBlock(parent);            // set currentBlock to block w phi's, for helper functions
+        IR.propagateNestedWhile(parent);
+        IR.setCurrentBlock(parent.getBranchTo());          // parent = while-follow
         // if whileFollow is un-nested, update its Symbol Table to have all updated variable values
         if (!IR.getCurrentBlock().isNested()) {
-            IR.getCurrentBlock().updateSymbolTableFromParent(current);
+            IR.getCurrentBlock().updateSymbolTableFromParent(parent);
         }
-        // propagate while
     }
 
     public void returnStatement() {
@@ -431,8 +430,7 @@ public class Parser {
         if (peek() == null) {
             System.out.println("DONE PARSING!");
         }
-        IR.printCFG();
-        IR.printSymbolTable(lexer.getIdentifiersMappedToId());
+        IR.printCFG(lexer.getIdentifiersMappedToId());
     }
 
     // ------------ HELPER FUNCTIONS ------------- //
@@ -490,8 +488,9 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/SSA/while-if-if.tiny");
+        Lexer lexer = new Lexer("tests/SSA/while-nested-in-while.tiny");
         Parser parser = new Parser(lexer);
+
     }
 
 }

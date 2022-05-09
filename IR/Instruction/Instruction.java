@@ -13,12 +13,16 @@ public class Instruction
         ADDA, LOAD, STORE, PHI, END,
         BRA, BNE, BEQ,
         BLE, BLT, BGE, BGT,
-        READ, WRITE, WRITENL
+        READ, WRITE, WRITENL,
+        BRANCH_TO
     }
 
     public Instruction(Op opType) {
         this.opType = opType;
         this.id = Instruction.idCounter++;
+        if (opType == Op.BRANCH_TO) {
+            Instruction.idCounter--;
+        }
     }
 
     public Op getOpType() {

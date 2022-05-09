@@ -18,6 +18,10 @@ public class UnaryInstr extends Instruction
         this.opIdReference = opIdReference;
     }
 
+    public void setOp(Instruction op) {
+        this.op = op;
+    }
+
     public void replaceOperand(int identId, Instruction oldValue, Instruction newValue) {
         // can take out op != null later?? depending on when in Parser I do the branch instr replacement
         if (op!= null && op.getId() == oldValue.getId() && opIdReference != null && opIdReference == identId) {

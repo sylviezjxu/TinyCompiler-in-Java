@@ -6,12 +6,13 @@ var a, b, c, d;
     let c <- call InputNum();
     let d <- b;
 
-    if a < d then
-        call OutputNum(a);
-    fi;
-    while a < c do
-        let a <- a + 1;
-    od;
+	while a < 100 do
+		let d <- b + 1;
+		while b < 100 do
+            let d <- b + 2;
+        od;
+        let a <- d + 1;
+	od;
 
 	call OutputNum(a);
 	call OutputNum(b);
