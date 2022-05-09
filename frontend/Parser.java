@@ -488,7 +488,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/SSA/while-nested-in-while.tiny");
+        Lexer lexer = new Lexer("tests/CFG/while-nested-in-elseBlock.tiny");
         Parser parser = new Parser(lexer);
 
     }

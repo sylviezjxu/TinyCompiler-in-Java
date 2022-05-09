@@ -2,11 +2,11 @@ main
 var a;
 {
     let a <- call InputNum();
-    while a < 100 do
-        let a <- 2 + 1;
+    while a >= 100 do
+        let a <- a + 1;
     od;
-
-    call OutputNum(a);
-    call OutputNum(b);
-    call OutputNum(c);
+    while a > 100 do
+        let a <- a + 9;
+        let a <- a + 2;
+    od;
 }.

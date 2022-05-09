@@ -1,8 +1,11 @@
 main
-var a;
+var a, b;
 {
-    while 1 < 100 do
-		let a <- 1 + 1;
+    let b <- call InputNum();
+    let a <- call InputNum();
+    while b < 100 do
+		let a <- b + 1;
+		let b <- b + 1;
 	od;
 	call OutputNum(a);
 }.

@@ -195,8 +195,6 @@ public class SSAIR
          *  eventually. If joinBlock has no phi for that identifier, that means the entire nested if-structure does not
          *  assign to it, therefore will not have it in its symbol table.
          *  */
-        // order of phi operands differ between then/else blocks
-        // also check to recognize assignments after if-join of nested if structures and generate phi accordingly
         else if ( currentBlock.getFallThruTo() != null && currentBlock.getFallThruTo().isBlockType(BasicBlock.BlockType.IF_JOIN) ) {
             BasicBlock joinBlock = currentBlock.getFallThruTo();
             // check if this phi already exists. if this id has already been assigned in joinBlock, it has an existing phi.
@@ -228,7 +226,7 @@ public class SSAIR
                 BinaryInstr phi = new BinaryInstr(Instruction.Op.PHI, oldValue, value);
                 phi.setOpIdReferences(id, id);
                 insertPhiToJoinBlock(joinBlock, id, phi);
-                propagateWhilePhi(joinBlock, id, oldValue, phi);        // for while join-blocks, replace all uses of the identifier to the new result
+                propagateWhilePhiDownstream(joinBlock, id, oldValue, phi);        // for while join-blocks, replace all uses of the identifier to the new result
             }
         }
     }
@@ -258,7 +256,6 @@ public class SSAIR
             }
         }
         // if-join block nested in while-block, branches to outer-join
-        // NEED TO PROPAGATE
         else if (parentBlock.getFallThruFrom() != null && parentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE)) {
             BasicBlock outerJoin = currentBlock.getBranchTo();
             for (Instruction innerPhi : currentBlock.getInstructions()) {
@@ -284,7 +281,8 @@ public class SSAIR
                 propagatePhiInIfThen(innerPhi, outerJoin);
             }
         }
-        // nested in if-else. always in form of parentIf branchesTo empty/non-empty block fallsThru to whileBlock
+        /** while block nested in if-else
+         *  always falls through from an intermediate block which falls through from outer-if */
         else if (parentBlock.getFallThruFrom() != null && parentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.IF_ELSE))
         {
             BasicBlock outerJoin = parentBlock.getBranchTo().getFallThruTo();
@@ -306,16 +304,14 @@ public class SSAIR
                 }
             }
         }
-        // nested in while
+        /** nested in while block. Check for cases where
+         *  1) whileBlock immediate falls through from outer-while-block
+         *  2) whileBlock falls through from an intermediate block which falls through from outer-while-block
+         *  */
         else if (parentBlock.getFallThruFrom() != null && parentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE)
                 || parentBlock.getFallThruFrom() != null && parentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE_BODY))
         {
-            BasicBlock outerJoin;
-            if (parentBlock.getFallThruFrom().isBlockType(BasicBlock.BlockType.WHILE)) {
-                outerJoin= parentBlock.getFallThruFrom();
-            } else {
-                outerJoin = parentBlock.getFallThruFrom().getFallThruFrom();
-            }
+            BasicBlock outerJoin = parentBlock.getBranchTo().getBranchTo();
             for (Instruction innerPhi : currentBlock.getInstructions()) {
                 if (innerPhi.getOpType() != Instruction.Op.PHI) {   // stop when reaches first non-phi
                     break;
@@ -325,6 +321,7 @@ public class SSAIR
         }
     }
 
+    /** generates phi from an assignment statement in if-then block. Can be nested */
     private void propagatePhiInIfThen(Instruction innerPhi, BasicBlock outerJoin) {
         int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId());  // get the id that innerPhi represents
         if (outerJoin.containsPhiAssignment(identifierId)) {
@@ -339,6 +336,7 @@ public class SSAIR
         }
     }
 
+    /** generates phi from an assignment statement in if-else block. Can be nested */
     private void propagatePhiInIfElse(Instruction innerPhi, BasicBlock parentBlock, BasicBlock outerJoin) {
         int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId());  // get the id that innerPhi represents
         // check if a phi for this identifier already exists
@@ -356,7 +354,7 @@ public class SSAIR
         }
     }
 
-    /** Propagates phi downstream in outer-while-structure */
+    /** Generates phi and propagates phi downstream in outer-while-structure */
     private void propagatePhiInWhile(Instruction innerPhi, BasicBlock outerJoin) {
         int identifierId = currentBlock.getIdentifierFromInstruction(innerPhi.getId()); // identifier represented by this phi
         if (outerJoin.containsPhiAssignment(identifierId)) {
@@ -368,14 +366,14 @@ public class SSAIR
             outerPhi.setOpIdReferences( ((BinaryInstr)innerPhi).getOp1IdReference(),
                                         ((BinaryInstr)innerPhi).getOp2IdReference() );
             insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
-            propagateWhilePhi(outerJoin, identifierId, oldValue, outerPhi);
+            propagateWhilePhiDownstream(outerJoin, identifierId, oldValue, outerPhi);
         }
     }
 
     /** takes an identifierId because the instructions that get replaced while propagating not only need to be
      *  referring to the same instruction, it also needs to be referring to the same specific identifier, as the same
      *  instruction reference could be referring to different identifiers. */
-    public void propagateWhilePhi(BasicBlock whileBlock, int identId, Instruction oldValue, Instruction newValue) {
+    public void propagateWhilePhiDownstream(BasicBlock whileBlock, int identId, Instruction oldValue, Instruction newValue) {
         int start = whileBlock.getFirstNonPhiInstrId(); // first instruction id in whileBlock thats not phi
         int end = newValue.getId();
         for (int i = start; i < end; i++) {
