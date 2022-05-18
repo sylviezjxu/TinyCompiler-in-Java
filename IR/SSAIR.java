@@ -7,6 +7,7 @@ import IR.Instruction.BinaryInstr;
 import IR.Instruction.UnaryInstr;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Map;
 
 /** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation.
@@ -17,8 +18,11 @@ public class SSAIR
     private final BasicBlock headBlock;
     private BasicBlock currentBlock;
 
+    private final HashSet<Integer> uninitializedVarErrors;
+
     /** initialize headBlock to empty block used to store constants. */
     public SSAIR() {
+        uninitializedVarErrors = new HashSet<>();
         instrInGeneratedOrder = new ArrayList<>();
         instrInGeneratedOrder.add(null);
         headBlock = new BasicBlock(BasicBlock.BlockType.BASIC);     // headBlock stores constants
@@ -192,7 +196,7 @@ public class SSAIR
          *
          *  value = SECOND operand of phi, look for first operand in the if-block of the enclosing if-structure
          *
-         *  *NOTE: starting serach for first operand in currentBlock.getBranchFrom() will reach the enclosing if-block
+         *  *NOTE: starting search for first operand in currentBlock.getBranchFrom() will reach the enclosing if-block
          *  eventually. If joinBlock has no phi for that identifier, that means the entire nested if-structure does not
          *  assign to it, therefore will not have it in its symbol table.
          *  */
@@ -201,6 +205,7 @@ public class SSAIR
             // check if this phi already exists. if this id has already been assigned in joinBlock, it has an existing phi.
             if (joinBlock.containsPhiAssignment(id)) {
                 ((BinaryInstr)joinBlock.getIdentifierInstruction(id)).setOp2(value);
+                uninitializedVarErrors.remove(id);    // set op2 of existing phi, remove this id from errors list if exists
             }
             else {
                 BinaryInstr phi = new BinaryInstr(Instruction.Op.PHI, currentBlock.getBranchFrom().getIdentifierInstruction(id), value);
@@ -227,12 +232,19 @@ public class SSAIR
                 BinaryInstr phi = new BinaryInstr(Instruction.Op.PHI, oldValue, value);
                 phi.setOpIdReferences(id, id);
                 insertPhiToJoinBlock(joinBlock, id, phi);
-                propagateWhilePhiDownstream(joinBlock, id, oldValue, phi);        // for while join-blocks, replace all uses of the identifier to the new result
+                if (oldValue != null) {
+                    propagateWhilePhiDownstream(joinBlock, id, oldValue, phi);        // for while join-blocks, replace all uses of the identifier to the new result
+                }
             }
         }
     }
 
     private void insertPhiToJoinBlock(BasicBlock joinBlock, int id, Instruction phi) {
+        if (((BinaryInstr)phi).getOp1() == null || ((BinaryInstr)phi).getOp2() == null) {
+            // whenever a phi is added and an operand is null, add it to initErrors list, if the null is overwritten later
+            // (in else block), id can be removed from initErrors list
+            uninitializedVarErrors.add(id);
+        }
         joinBlock.insertInstruction(phi);           // inserts instr into joinBlock
         joinBlock.setIdentifierToInstr(id, phi);    // adds {id : instr} to joinBlock's symbol table
         instrInGeneratedOrder.add(phi);
@@ -343,6 +355,7 @@ public class SSAIR
         // check if a phi for this identifier already exists
         if (outerJoin.containsPhiAssignment(identifierId)) {
             ((BinaryInstr)outerJoin.getIdentifierInstruction(identifierId)).setOp2(innerPhi);
+            uninitializedVarErrors.remove(identifierId);        // remove identifierId from initErrors if exists
         }
         else {
             // if this phi does not exist in the outerJoin, that means the then block of the outer-if did not modify it,
@@ -367,7 +380,9 @@ public class SSAIR
             outerPhi.setOpIdReferences( ((BinaryInstr)innerPhi).getOp1IdReference(),
                                         ((BinaryInstr)innerPhi).getOp2IdReference() );
             insertPhiToJoinBlock(outerJoin, identifierId, outerPhi);
-            propagateWhilePhiDownstream(outerJoin, identifierId, oldValue, outerPhi);
+            if (oldValue != null) {
+                propagateWhilePhiDownstream(outerJoin, identifierId, oldValue, outerPhi);
+            }
         }
     }
 
@@ -386,6 +401,10 @@ public class SSAIR
                 ((UnaryInstr)curr).replaceOperand(identId, oldValue, newValue);
             }
         }
+    }
+
+    public HashSet<Integer> getUninitializedVarErrors() {
+        return uninitializedVarErrors;
     }
 
     /** if branchTo is empty, insert dummy instruction for branching.
@@ -417,8 +436,7 @@ public class SSAIR
         return String.join("|", idStrs);
     }
 
-    public void printCFG(Map<String, Integer> lexerMap) {
-        boolean showSymbolTable = true;
+    public void printCFG(Map<String, Integer> lexerMap, boolean showSymbolTable) {
         System.out.println("\n---------------- CFG ---------------");
         // generate blocks
         for (BasicBlock block : BasicBlock.allBlocks) {

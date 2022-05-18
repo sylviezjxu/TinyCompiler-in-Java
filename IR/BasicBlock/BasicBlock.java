@@ -26,7 +26,7 @@ public class BasicBlock
     public static ArrayList<BasicBlock> allBlocks = new ArrayList<>();
 
     private final int blockId;
-    private HashSet<BlockType> blockTypes = new HashSet<>();
+    private final HashSet<BlockType> blockTypes;
     private BasicBlock fallThruTo;
     private BasicBlock branchTo;
     private BasicBlock fallThruFrom;
@@ -44,6 +44,7 @@ public class BasicBlock
 
     public BasicBlock(BlockType blockType) {
         this.blockId = BasicBlock.blockIdCounter++;
+        this.blockTypes = new HashSet<>();
         this.blockTypes.add(blockType);
 
         this.instructions = new LinkedList<>();

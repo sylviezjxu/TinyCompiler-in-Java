@@ -1,0 +1,8 @@
+main
+var a;
+{
+    if 1 < 100 then
+        let a <- 1;
+    fi;
+	call OutputNum(a);
+}.
