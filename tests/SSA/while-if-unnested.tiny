@@ -11,6 +11,8 @@ var a, b, c, d;
     od;
     if a < d then
         call OutputNum(a);
+    else
+        let b <- a + 1;
     fi;
 
 	call OutputNum(a);

@@ -1,6 +1,7 @@
 package IR.BasicBlock;
 
 import IR.Instruction.Instruction;
+import IR.Instruction.UnaryInstr;
 
 import java.util.*;
 
@@ -170,9 +171,13 @@ public class BasicBlock
             instructions.add(index, i);
         }
         // remove dummy instruction
+        // when removing the dummy BRANCH_TO, update whatever instruction is branching to that deleted instr
         else if (instructions.size() >= 1 && instructions.getFirst().getOpType() == Instruction.Op.BRANCH_TO) {
             instructions.removeFirst();
             instructions.add(i);
+            if (branchFrom != null) {
+                ((UnaryInstr)branchFrom.instructions.getLast()).setOp(i);
+            }
         }
         else {
             instructions.add(i);

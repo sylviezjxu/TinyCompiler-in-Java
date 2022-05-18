@@ -154,6 +154,11 @@ public class SSAIR
         instrInGeneratedOrder.add(i);
     }
 
+    public void insertToBlock(BasicBlock block, Instruction i) {
+        block.insertInstruction(i);
+        instrInGeneratedOrder.add(i);
+    }
+
     /** given identifier id, returns Instruction value from current block, search method implemented in BasicBlock */
     public Instruction getIdentifierInstruction(int id) {
         return currentBlock.getIdentifierInstruction(id);
@@ -236,6 +241,10 @@ public class SSAIR
                     propagateWhilePhiDownstream(joinBlock, id, oldValue, phi);        // for while join-blocks, replace all uses of the identifier to the new result
                 }
             }
+        }
+        /** un-nested */
+        else {
+            uninitializedVarErrors.remove(id);      // remove from initErrors if exists
         }
     }
 
@@ -431,7 +440,12 @@ public class SSAIR
     public String symbolTableToString(Map<Integer, Instruction> symbolTable, Map<String, Integer> lexerMap) {
         ArrayList<String> idStrs = new ArrayList<>();
         for (Map.Entry<Integer, Instruction> set : symbolTable.entrySet()) {
-            idStrs.add(String.format("%s = (%d)", getIdentifierName(set.getKey(), lexerMap), set.getValue().getId()));
+            if (set.getValue() == null) {
+                idStrs.add(String.format("%s = null", getIdentifierName(set.getKey(), lexerMap)));
+            }
+            else {
+                idStrs.add(String.format("%s = (%d)", getIdentifierName(set.getKey(), lexerMap), set.getValue().getId()));
+            }
         }
         return String.join("|", idStrs);
     }

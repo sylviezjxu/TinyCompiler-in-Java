@@ -1,5 +1,6 @@
 package IR.Instruction;
 
+/** BNE, BEQ, BGT, BGE, BLT, BLE, BRA, WRITE */
 public class UnaryInstr extends Instruction
 {
     private Instruction op;

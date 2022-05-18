@@ -275,7 +275,8 @@ public class Parser {
         // DONE
         System.out.println("if statement");
         next();     // consumes "if"
-        BasicBlock parent = IR.enterIf();      // parent = ifBlock
+        BasicBlock parent = IR.enterIf();           // save parent ifBlock
+        BasicBlock join = parent.getBranchTo();     // save join block
         relation();                        // cmp instructions get added to the parent block
         next();     // consumes "then"
         IR.setCurrentBlock(parent.getFallThruTo());      // set current to parent's then-block
@@ -287,9 +288,7 @@ public class Parser {
             IR.generateElseBlock();
             IR.setCurrentBlock(parent.getBranchTo());       // set current to parent's else-block
             statementSequence();
-            IR.setCurrentBlock(parent.getFallThruTo());     // set current to parent's then-block
-            IR.insertInstrToCurrentBlock( new UnaryInstr(Instruction.Op.BRA, IR.getCurrentBlock().getBranchTo().getFirstInstr()) );
-            IR.setCurrentBlock(parent.getBranchTo());       // set current back to else-block (for checking nested)
+            IR.insertToBlock(join.getBranchFrom(), new UnaryInstr(Instruction.Op.BRA, join.getFirstInstr()));
         }
         IR.setBranchInstr(parent);          // set branch instr after generating then/else/join
         next();     // consumes "fi"
@@ -439,15 +438,10 @@ public class Parser {
         if (peek() == null) {
             System.out.println("DONE PARSING!\n");
         }
-        if (IR.getUninitializedVarErrors().size() == 0) {
-            IR.printCFG(lexer.getIdentifiersMappedToId(), true);
+        for (Integer var : IR.getUninitializedVarErrors()) {
+            System.out.printf("ERROR: VARIABLE %s NOT INITIALIZED ON ALL PATHS\n", lexer.getIdentifierName(var));
         }
-        else {
-            for (Integer var : IR.getUninitializedVarErrors()) {
-                System.out.printf("ERROR: VARIABLE %s NOT INITIALIZED ON ALL PATHS\n", lexer.getIdentifierName(var));
-            }
-            IR.printCFG(lexer.getIdentifiersMappedToId(), false);
-        }
+        IR.printCFG(lexer.getIdentifiersMappedToId(), true);
     }
 
     // ------------ HELPER FUNCTIONS ------------- //
@@ -505,7 +499,7 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/SSA/simple-if-else.tiny");
+        Lexer lexer = new Lexer("tests/SSA/while-if-if.tiny");
         Parser parser = new Parser(lexer);
 
     }
