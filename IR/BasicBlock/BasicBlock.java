@@ -1,31 +1,38 @@
 package IR.BasicBlock;
 
+import IR.Instruction.BinaryInstr;
 import IR.Instruction.Instruction;
 import IR.Instruction.UnaryInstr;
+import IR.Search.InstrSearchNode;
+import IR.Search.OpSearcher;
 
 import java.util.*;
 
 /**                     ------------------- BASIC BLOCK CLASS ---------------------
  *
- *  BLOCKTYPES:     a hashset of all types this block can be considered as. Had it as just one blocktype before, but
+ *  BLOCK TYPES:    a hashset of all types this block can be considered as. Had it as just one blocktype before, but
  *                  might mess up CFG generation which generates blocks based on current's blocktype.
  *
- *  BLOCK POINTERS: each basic block contains 4 pointers to 2 possible children and 2 possible parents. Each pointer
+ *  BLOCK POINTERS: --- fallThruTo, branchTo, fallThruFrom, branchFrom ---
+ *                  each basic block contains 4 pointers to 2 possible children and 2 possible parents. Each pointer
  *                  is specified by its relationship to this block as either Branch or Fallthrough.
  *
  *  INSTRUCTIONS:   each basic block contains a linearly linked list of instructions generated within this block
  *
- *  SYMBOL TABLE:   Identifer ID's mapped to its instruction value. The complete symbol table exists only in un-nested
+ *  SYMBOL TABLE:   Identifier ID's mapped to its instruction value. The complete symbol table exists only in un-nested
  *                  join/follow blocks. All nested blocks only keep mappings of identifiers that were assigned within
  *                  that block. Recursively search upstream if cannot find.
+ *
+ *  OP SEARCHER:    the search data structure which keeps track of instructions in dominator order, used for CSE
  *
  *  */
 public class BasicBlock
 {
-    // public variables for debugging purposes
+    // static variables for graph debugging
     public static int blockIdCounter = 1;
     public static ArrayList<BasicBlock> allBlocks = new ArrayList<>();
 
+    // BasicBlock attributes
     private final int blockId;
     private final HashSet<BlockType> blockTypes;
     private BasicBlock fallThruTo;
@@ -33,9 +40,10 @@ public class BasicBlock
     private BasicBlock fallThruFrom;
     private BasicBlock branchFrom;
 
+    // BasicBlock Data Structures
     private final LinkedList<Instruction> instructions;
     private final HashMap<Integer, Instruction> symbolTable;
-
+    private final OpSearcher opSearcher;
 
     public enum BlockType {
         BASIC,
@@ -50,11 +58,13 @@ public class BasicBlock
 
         this.instructions = new LinkedList<>();
         this.symbolTable = new HashMap<>();
+        this.opSearcher = new OpSearcher();
 
         allBlocks.add(this);
     }
 
     // ---------- ACCESS/CFG-LINKING METHODS ----------- //
+
     public int getBlockId() {
         return blockId;
     }
@@ -135,6 +145,7 @@ public class BasicBlock
         }
     }
 
+
     // --------- METHODS FOR INSTRUCTION GENERATION ---------- //
 
     public boolean isNested() {
@@ -181,6 +192,9 @@ public class BasicBlock
         }
         else {
             instructions.add(i);
+        }
+        if (i.isAddSubDivMul()) {
+            insertOp(i);
         }
     }
 
@@ -235,7 +249,6 @@ public class BasicBlock
         }
     }
 
-
     /**  random method that returns the id of the first instruction in the while block that is not phi
      *  (used for while-phi-propagation) */
     public int getFirstNonPhiInstrId() {
@@ -249,5 +262,23 @@ public class BasicBlock
 
     public Instruction getFirstInstr() {
         return instructions.getFirst();
+    }
+
+
+    // ---------------------- OP-SEARCH METHODS ------------------------ //
+
+    /** adds instruction into opSearcher */
+    private void insertOp(Instruction i) {
+        opSearcher.addInstruction(i);
+    }
+
+    /** checks if the given instruction has already been computed, returns if it has */
+    public Instruction returnIfComputed(Instruction i) {
+        return opSearcher.returnIfComputed((BinaryInstr)i);
+    }
+
+    /** update this block's opSearcher to have the same headNodes as the other block */
+    public void inheritOpSearchFrom(BasicBlock dom) {
+        opSearcher.inherit(dom.opSearcher);
     }
 }

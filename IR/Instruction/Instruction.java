@@ -34,14 +34,17 @@ public class Instruction
     }
 
     public boolean isBinary() {
-        return opType == Op.ADD || opType == Op.SUB || opType == Op.MUL || opType == Op.DIV ||
-                opType == Op.CMP || opType == Op.STORE || opType == Op.PHI;
+        return isAddSubDivMul() || opType == Op.CMP || opType == Op.STORE || opType == Op.PHI;
     }
 
     public boolean isUnary() {
         return opType == Op.NEG || opType == Op.LOAD || opType == Op.BRA || opType == Op.BNE ||
                 opType == Op.BEQ || opType == Op.BLE || opType == Op.BLT || opType == Op.BGE ||
                 opType == Op.BGT || opType == Op.WRITE;
+    }
+
+    public boolean isAddSubDivMul() {
+        return opType == Op.ADD || opType == Op.SUB || opType == Op.MUL || opType == Op.DIV;
     }
 
     public String toString() {

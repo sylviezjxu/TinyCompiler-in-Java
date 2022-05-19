@@ -10,8 +10,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
 
-/** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation.
- *  */
+/** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation. */
 public class SSAIR
 {
     private final ArrayList<Instruction> instrInGeneratedOrder;  // <- for propogating phi's in while CFG
@@ -41,10 +40,11 @@ public class SSAIR
     }
 
     /** generates new block which directly falls thru from currentBlock. Set currentBlock to new block */
-    public void generateFallThruBlock(BasicBlock.BlockType blockType) {
+    public BasicBlock generateFallThruBlock(BasicBlock.BlockType blockType) {
         BasicBlock newBlock = new BasicBlock(blockType);
         currentBlock.addDoubleLinkedFallThruTo(newBlock);
-        currentBlock = currentBlock.getFallThruTo();      // since it's just single path fallthru, advance currentblock to fallthru
+        newBlock.inheritOpSearchFrom(currentBlock);
+        return newBlock;
     }
 
     /** generate IF-CFG. current block becomes if-block, generate then block and join block,
@@ -71,22 +71,27 @@ public class SSAIR
         newThenBlock.addDoubleLinkedFallThruTo(newJoin);
         newThenBlock.addDoubleLinkedFallThruFrom(currentBlock);
 
+        newThenBlock.inheritOpSearchFrom(currentBlock);     // thenBlock dominated by ifBlock
+        newJoin.inheritOpSearchFrom(currentBlock);          // inherits op Searcher from dominator
+
         currentBlock.addBlockType(BasicBlock.BlockType.IF);
         return currentBlock;
     }
 
     /** generates else-block. accommodates for nested-ness by setting current branch to new branch's fallthrough
      *  can assume when this is called, currentBlock is always an if-block. */
-    public void generateElseBlock() {
-        BasicBlock join = this.currentBlock.getBranchTo();   // save join block
+    public BasicBlock generateElseBlock(BasicBlock parent) {
+        BasicBlock join = parent.getBranchTo();   // save join block
         // change then->join to branch
         BasicBlock innerJoin = join.getFallThruFrom();       // save then block or join-block inside then-block
         join.deleteFallThruWithParent(innerJoin);       // delete fallThru between outerJoin <-> innerJoin
         innerJoin.addDoubleLinkedBranchTo(join);
         // else block branches from current if-block, falls through to join block
         BasicBlock newElse = new BasicBlock(BasicBlock.BlockType.IF_ELSE);
-        newElse.addDoubleLinkedBranchFrom(currentBlock);
+        newElse.addDoubleLinkedBranchFrom(parent);
         newElse.addDoubleLinkedFallThruTo(join);
+        newElse.inheritOpSearchFrom(parent);            // inherit opSearch from dominator
+        return newElse;
     }
 
     /** finds join-block after generating then-block/else-block. currentBlock is either thenBlock or elseBlock. */
@@ -107,7 +112,7 @@ public class SSAIR
         }
         // while cmp needs to be in its own block for phi generation
         if (!currentBlock.isEmpty() || currentBlock.getBranchFrom() != null) {
-            generateFallThruBlock(BasicBlock.BlockType.WHILE);      // currentBlock is now the WHILE-Block
+            currentBlock = generateFallThruBlock(BasicBlock.BlockType.WHILE);      // currentBlock is now the WHILE-Block
         } else {
             currentBlock.addBlockType(BasicBlock.BlockType.WHILE);  // currentBlock is now of BlockType WHILE
         }
@@ -123,6 +128,9 @@ public class SSAIR
         } else {
             whileFollow.addDoubleLinkedFallThruTo(saveJoin);
         }
+        // inherit search data structure
+        whileBody.inheritOpSearchFrom(currentBlock);
+        whileFollow.inheritOpSearchFrom(currentBlock);
         return currentBlock;
     }
 
@@ -148,13 +156,25 @@ public class SSAIR
         currentBlock.addVarDecl(id);
     }
 
-    /** inserts Instruction into the current block and into list of instrInGeneratedOrder */
-    public void insertInstrToCurrentBlock(Instruction i) {
-        currentBlock.insertInstruction(i);
-        instrInGeneratedOrder.add(i);
+    /** inserts Instruction into the current block and into list of instrInGeneratedOrder and returns it
+     *  if instruction has already been computed before, do not insert */
+    public Instruction insertInstrToCurrentBlock(Instruction i) {
+        // if is ADD/SUB/DIV/MUL and has already been computed, do not insert and return the already computed instruction
+        if (i.isAddSubDivMul() && currentBlock.returnIfComputed(i) != null) {
+            Instruction res = currentBlock.returnIfComputed(i);
+            instrInGeneratedOrder.add(res);
+            return res;
+        }
+        else {
+            currentBlock.insertInstruction(i);
+            instrInGeneratedOrder.add(i);
+            return i;
+        }
     }
 
-    public void insertToBlock(BasicBlock block, Instruction i) {
+    /** inserts given instruction into given Basic-block, adds it to linked list of instr in generated order
+     *  don't need to return the inserted instruction since this method is only used to insert BRA instr */
+    public void insertInstrToBlock(BasicBlock block, Instruction i) {
         block.insertInstruction(i);
         instrInGeneratedOrder.add(i);
     }
@@ -248,6 +268,7 @@ public class SSAIR
         }
     }
 
+    /** inserts a single phi instruction into the given if-join/while-join block */
     private void insertPhiToJoinBlock(BasicBlock joinBlock, int id, Instruction phi) {
         if (((BinaryInstr)phi).getOp1() == null || ((BinaryInstr)phi).getOp2() == null) {
             // whenever a phi is added and an operand is null, add it to initErrors list, if the null is overwritten later
@@ -412,6 +433,7 @@ public class SSAIR
         }
     }
 
+    /** returns hashset of init errors */
     public HashSet<Integer> getUninitializedVarErrors() {
         return uninitializedVarErrors;
     }

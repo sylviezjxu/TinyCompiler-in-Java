@@ -91,15 +91,14 @@ public class Parser {
                 res = new BinaryInstr(Instruction.Op.DIV, op1, op2);
             }
             ((BinaryInstr)res).setOpIdReferences(op1IdRef, op2IdRef);
-            IR.insertInstrToCurrentBlock(res);
-            op1 = res;
+            op1 = res = IR.insertInstrToCurrentBlock(res);;
             op1IdRef = null;
             termIsVarRef = false;
         }
         return res;
     }
 
-    /**  */
+    /** returns id of identifier if current factor is referring to an identifier */
     private Integer checkVarRefFactor(Token peek) {
         if (peek.isUserDefinedIdentifier()) {
             termIsVarRef = true;
@@ -131,14 +130,14 @@ public class Parser {
                 res = new BinaryInstr(Instruction.Op.SUB, op1, op2);
             }
             ((BinaryInstr)res).setOpIdReferences(op1IdRef, op2IdRef);
-            IR.insertInstrToCurrentBlock(res);
-            op1 = res;
+            op1 = res = IR.insertInstrToCurrentBlock(res);
             op1IdRef = null;
             exprIsVarRef = false;
         }
         return res;
     }
 
+    /** returns id of identifier if current expression is referring to an identifier */
     private Integer checkVarRefTerm() {
         if (termIsVarRef) {
             termIsVarRef = false;
@@ -284,11 +283,9 @@ public class Parser {
         if (checkIfTokenIs(peek(), "else")) {
             System.out.println("else");
             next();
-            IR.setCurrentBlock(parent);
-            IR.generateElseBlock();
-            IR.setCurrentBlock(parent.getBranchTo());       // set current to parent's else-block
+            IR.setCurrentBlock(IR.generateElseBlock(parent));       // set current to newly generated else-block
             statementSequence();
-            IR.insertToBlock(join.getBranchFrom(), new UnaryInstr(Instruction.Op.BRA, join.getFirstInstr()));
+            IR.insertInstrToBlock(join.getBranchFrom(), new UnaryInstr(Instruction.Op.BRA, join.getFirstInstr()));
         }
         IR.setBranchInstr(parent);          // set branch instr after generating then/else/join
         next();     // consumes "fi"
@@ -424,7 +421,7 @@ public class Parser {
     public void computation() {
         System.out.println("computation");
         next();     // consumes "main"
-        IR.generateFallThruBlock(BasicBlock.BlockType.BASIC);      // generate new block for varDecl (linear, no branches)
+        IR.setCurrentBlock(IR.generateFallThruBlock(BasicBlock.BlockType.BASIC));      // generate new block for varDecl (linear, no branches)
         while (checkIfTokenIs(peek(), "var")) {
             variableDeclaration();
         }
@@ -498,9 +495,9 @@ public class Parser {
         System.out.println("COMPILE WARNING: " + message);
     }
 
+    // ------------------------------- MAIN -------------------------------- //
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/SSA/while-if-if.tiny");
+        Lexer lexer = new Lexer("tests/CSE/while-if-if.tiny");
         Parser parser = new Parser(lexer);
-
     }
 }
