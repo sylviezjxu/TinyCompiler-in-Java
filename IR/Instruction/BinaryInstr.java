@@ -1,5 +1,7 @@
 package IR.Instruction;
 
+import java.util.Objects;
+
 public class BinaryInstr extends Instruction
 {
     private Instruction op1;
@@ -49,6 +51,15 @@ public class BinaryInstr extends Instruction
         if (op2.getId() == oldValue.getId() && op2IdReference != null && op2IdReference == identId) {
             op2 = newValue;
         }
+    }
+
+    public boolean sameOperandIds(BinaryInstr other) {
+        return op1.getId() == other.op1.getId() && op2.getId() == other.op2.getId();
+    }
+
+    public boolean sameOperandIdAndRefs(BinaryInstr other) {
+        return sameOperandIds(other) && Objects.equals(op1IdReference, other.op1IdReference) &&
+                Objects.equals(op2IdReference, other.op2IdReference);
     }
 
     @Override

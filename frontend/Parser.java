@@ -269,49 +269,48 @@ public class Parser {
         }
     }
 
-    // ONLY propoagate at the end of traversing if-then-else
+    // DONE
     public void ifStatement() {
-        // DONE
         System.out.println("if statement");
-        next();     // consumes "if"
-        BasicBlock parent = IR.enterIf();           // save parent ifBlock
-        BasicBlock join = parent.getBranchTo();     // save join block
-        relation();                        // cmp instructions get added to the parent block
-        next();     // consumes "then"
-        IR.setCurrentBlock(parent.getFallThruTo());      // set current to parent's then-block
+        next();                                          // consumes "if"
+        BasicBlock parent = IR.enterIf();                // save parent ifBlock
+        BasicBlock join = parent.getBranchTo();          // save join block
+        relation();                                      // cmp instructions get added to the parent block
+        next();                                          // consumes "then"
+        IR.setCurrentBlock(parent.getFallThruTo());      // current = then-block
         statementSequence();
         if (checkIfTokenIs(peek(), "else")) {
             System.out.println("else");
-            next();
-            IR.setCurrentBlock(IR.generateElseBlock(parent));       // set current to newly generated else-block
+            next();                                             // consumes "else"
+            IR.setCurrentBlock(IR.generateElseBlock(parent));   // current = elseBlock
             statementSequence();
-            IR.insertInstrToBlock(join.getBranchFrom(), new UnaryInstr(Instruction.Op.BRA, join.getFirstInstr()));
+            IR.addBranchInstr(join.getBranchFrom());            // adds branch instruction from last block in if-then branch to if-join
         }
-        IR.setBranchInstr(parent);          // set branch instr after generating then/else/join
-        next();     // consumes "fi"
-        IR.setCurrentBlock(IR.findJoinBlock());             // set current to parent's join
-        IR.propagateNestedIf(parent);                           // propagate phi, the join block should only have phi functions
+        IR.setBranchInstr(parent);                      // set cmp branch instr after generating then/else/join
+        next();                                         // consumes "fi"
+        IR.setCurrentBlock(IR.findJoinBlock());         // current = join
+        IR.propagateNestedIf(parent);                   // propagate phi, the join block should only have phi functions
+        // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
         if (!IR.getCurrentBlock().isNested()) {
-            // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
             IR.getCurrentBlock().updateSymbolTableFromParent(parent);
         }
     }
 
+    // DONE
     public void whileStatement() {
-        // DONE
         System.out.println("while statement");
-        next();     // consumes "while"
-        BasicBlock parent = IR.enterWhile();       // parent = whileBlock
-        relation();         // cmp instructions get added to while-block
-        next();     // consumes "do"
-        IR.setCurrentBlock(parent.getFallThruTo());        // parent = while-body
+        next();                                     // consumes "while"
+        BasicBlock parent = IR.enterWhile();        // parent = whileBlock
+        relation();                                 // cmp instructions get added to while-block
+        next();                                     // consumes "do"
+        IR.setCurrentBlock(parent.getFallThruTo()); // current = while-body
         statementSequence();
-        IR.insertInstrToCurrentBlock( new UnaryInstr(Instruction.Op.BRA, parent.getFirstInstr()) );
-        IR.setBranchInstr(parent);
-        next();     // consumes "od"
-        IR.setCurrentBlock(parent);            // set currentBlock to block w phi's, for helper functions
+        IR.addBranchInstr(IR.getCurrentBlock());    // adds branch instruction from while-body to parent-while
+        IR.setBranchInstr(parent);                  // updates operand of parent block's last branch instruction
+        next();                                     // consumes "od"
+        IR.setCurrentBlock(parent);                 // set currentBlock to block w phi's, for helper functions
         IR.propagateNestedWhile(parent);
-        IR.setCurrentBlock(parent.getBranchTo());          // parent = while-follow
+        IR.setCurrentBlock(parent.getBranchTo());   // parent = while-follow
         // if whileFollow is un-nested, update its Symbol Table to have all updated variable values
         if (!IR.getCurrentBlock().isNested()) {
             IR.getCurrentBlock().updateSymbolTableFromParent(parent);
@@ -497,7 +496,7 @@ public class Parser {
 
     // ------------------------------- MAIN -------------------------------- //
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/CSE/while-if-if.tiny");
+        Lexer lexer = new Lexer("tests/CSE/tricky.tiny");
         Parser parser = new Parser(lexer);
     }
 }

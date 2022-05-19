@@ -9,6 +9,7 @@ import IR.Instruction.UnaryInstr;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 
 /** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation. */
 public class SSAIR
@@ -159,24 +160,28 @@ public class SSAIR
     /** inserts Instruction into the current block and into list of instrInGeneratedOrder and returns it
      *  if instruction has already been computed before, do not insert */
     public Instruction insertInstrToCurrentBlock(Instruction i) {
-        // if is ADD/SUB/DIV/MUL and has already been computed, do not insert and return the already computed instruction
-        if (i.isAddSubDivMul() && currentBlock.returnIfComputed(i) != null) {
-            Instruction res = currentBlock.returnIfComputed(i);
-            instrInGeneratedOrder.add(res);
-            return res;
+        BinaryInstr exactMatch = i.isAddSubDivMul() ? currentBlock.exactMatchCommonSubExpr(i) : null;
+        BinaryInstr referenceMatch = i.isAddSubDivMul() ? currentBlock.returnIfComputed(i) : null;
+        /** Instruction i has completely same operands references as an already computed expression, can just eliminate,
+         *  guaranteed to never need to get re-activated */
+        if ( exactMatch != null) {
+            Instruction.idCounter--;        // decrement idCounter, as if Instruction i was never generated
+            return exactMatch;
         }
+        /** exists a commonSubexpression, but refers to difference operands, so may need to get reactivated later if
+         *  one of the operands gets modified */
+        else if ( referenceMatch != null ) {
+            i.eliminate();      // insert i as "invisible" instruction
+            currentBlock.insertInstruction(i);
+            instrInGeneratedOrder.add(i);
+            return i;
+        }
+        /** does not have any common subexpression match */
         else {
             currentBlock.insertInstruction(i);
             instrInGeneratedOrder.add(i);
             return i;
         }
-    }
-
-    /** inserts given instruction into given Basic-block, adds it to linked list of instr in generated order
-     *  don't need to return the inserted instruction since this method is only used to insert BRA instr */
-    public void insertInstrToBlock(BasicBlock block, Instruction i) {
-        block.insertInstruction(i);
-        instrInGeneratedOrder.add(i);
     }
 
     /** given identifier id, returns Instruction value from current block, search method implemented in BasicBlock */
@@ -439,13 +444,26 @@ public class SSAIR
     }
 
     /** if branchTo is empty, insert dummy instruction for branching.
-     *  In the case of while=follow, the dummy instr can be deleted later when inserting actual instructions */
+     *  In the case of while-follow/if-join, the dummy instr can be deleted later when inserting actual instructions */
     public void setBranchInstr(BasicBlock parent) {
         if (parent.getBranchTo().getInstructions().isEmpty()) {
             Instruction dummy = new Instruction(Instruction.Op.BRANCH_TO);
             parent.getBranchTo().insertInstruction(dummy);
+            instrInGeneratedOrder.add(dummy);
         }
         ((UnaryInstr)parent.getInstructions().getLast()).setOp( parent.getBranchTo().getFirstInstr() );
+    }
+
+    public void addBranchInstr(BasicBlock target) {
+        BasicBlock branchTo = target.getBranchTo();
+        if (branchTo.isEmpty()) {
+            Instruction dummy = new Instruction(Instruction.Op.BRANCH_TO);
+            branchTo.insertInstruction(dummy);
+            instrInGeneratedOrder.add(dummy);
+        }
+        Instruction branchInstr = new UnaryInstr(Instruction.Op.BRA, branchTo.getFirstInstr());
+        target.insertInstruction( branchInstr );
+        instrInGeneratedOrder.add(branchInstr);
     }
 
                 // ------------------------- DEBUGGING METHODS --------------------------- //

@@ -23,15 +23,26 @@ public class OpSearcher {
         linkedOps.putAll(other.linkedOps);
     }
 
-    /** returns true if given instr has been computed already, can do CSE.
-     *  Two computations are Common subexpression if they have same OpType and same operands
+    /** Two computations are Common subexpression if they have same OpType and same operands
      *  returns the instruction that's already been computed */
-    public Instruction returnIfComputed(BinaryInstr instr) {
+    public BinaryInstr returnIfComputed(BinaryInstr instr) {
         InstrSearchNode current = linkedOps.get(instr.getOpType());
         while (current != null && current.getInstr() != null) {
             BinaryInstr currInstr = (BinaryInstr)current.getInstr();
-            if ( currInstr.getOp1().getId() == instr.getOp1().getId() &&
-                    currInstr.getOp2().getId() == instr.getOp2().getId() ) {
+            if ( currInstr.sameOperandIds(instr) ) {
+                return currInstr;
+            }
+            current = current.getNext();
+        }
+        return null;
+    }
+
+    /** searches for exact match of two binary instructions. Same operands and same operand references */
+    public BinaryInstr searchExactMatch(BinaryInstr instr) {
+        InstrSearchNode current = linkedOps.get(instr.getOpType());
+        while (current != null && current.getInstr() != null) {
+            BinaryInstr currInstr = (BinaryInstr)current.getInstr();
+            if ( currInstr.sameOperandIdAndRefs(instr) ) {
                 return currInstr;
             }
             current = current.getNext();

@@ -185,6 +185,7 @@ public class BasicBlock
         // when removing the dummy BRANCH_TO, update whatever instruction is branching to that deleted instr
         else if (instructions.size() >= 1 && instructions.getFirst().getOpType() == Instruction.Op.BRANCH_TO) {
             instructions.removeFirst();
+            //Instruction.idCounter--;        // decrement idCounter, as if BRANCH_TO was never generated
             instructions.add(i);
             if (branchFrom != null) {
                 ((UnaryInstr)branchFrom.instructions.getLast()).setOp(i);
@@ -272,8 +273,14 @@ public class BasicBlock
         opSearcher.addInstruction(i);
     }
 
-    /** checks if the given instruction has already been computed, returns if it has */
-    public Instruction returnIfComputed(Instruction i) {
+    /** finds an already-computed common expression that not only has the same operands, but its operands refer to the
+     *  same identifiers */
+    public BinaryInstr exactMatchCommonSubExpr(Instruction i) {
+        return opSearcher.searchExactMatch((BinaryInstr) i);
+    }
+
+    /** checks if the given instruction has already been computed (same operands), returns if it has */
+    public BinaryInstr returnIfComputed(Instruction i) {
         return opSearcher.returnIfComputed((BinaryInstr)i);
     }
 

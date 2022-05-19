@@ -6,6 +6,7 @@ public class Instruction
 
     private final int id;
     private final Op opType;
+    private boolean eliminated;
 
     public enum Op {
         CONST, NEG,
@@ -20,9 +21,15 @@ public class Instruction
     public Instruction(Op opType) {
         this.opType = opType;
         this.id = Instruction.idCounter++;
-        if (opType == Op.BRANCH_TO) {
-            Instruction.idCounter--;
-        }
+        this.eliminated = false;
+    }
+
+    public void eliminate() {
+        this.eliminated = true;
+    }
+
+    public void activate() {
+        this.eliminated = false;
     }
 
     public Op getOpType() {
@@ -48,6 +55,11 @@ public class Instruction
     }
 
     public String toString() {
-        return String.format("%d: %s", id, opType.toString());
+        if (eliminated) {
+            return String.format("[eliminated] %d: %s", id, opType.toString());
+        }
+        else {
+            return String.format(" %d: %s", id, opType.toString());
+        }
     }
 }

@@ -9,5 +9,4 @@ var a, b, c, d;
     if a < d then
         call OutputNum(a);
     fi;
-
 }.
