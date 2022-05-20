@@ -19,6 +19,10 @@ public class UnaryInstr extends Instruction
         this.opIdReference = opIdReference;
     }
 
+    public Instruction getOp() {
+        return op;
+    }
+
     public void setOp(Instruction op) {
         this.op = op;
     }

@@ -3,7 +3,9 @@ package IR.Search;
 import IR.Instruction.BinaryInstr;
 import IR.Instruction.Instruction;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 /** The search data structure that keeps separates instructions based on opcodes. Used in eliminating common subexpression */
 public class OpSearcher {
@@ -56,4 +58,5 @@ public class OpSearcher {
         InstrSearchNode newHead = new InstrSearchNode(instr, oldHead);
         linkedOps.put(instr.getOpType(), newHead);
     }
+
 }

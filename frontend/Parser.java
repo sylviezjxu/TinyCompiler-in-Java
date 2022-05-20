@@ -431,6 +431,7 @@ public class Parser {
         statementSequence();
         next();     // consumes "}"
         next();     // consumes "."
+        IR.propagateCommonSubexpr();
         if (peek() == null) {
             System.out.println("DONE PARSING!\n");
         }

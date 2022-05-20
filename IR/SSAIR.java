@@ -6,10 +6,7 @@ import IR.Instruction.Instruction;
 import IR.Instruction.BinaryInstr;
 import IR.Instruction.UnaryInstr;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation. */
 public class SSAIR
@@ -18,11 +15,14 @@ public class SSAIR
     private final BasicBlock headBlock;
     private BasicBlock currentBlock;
 
+    private final HashMap<Integer, List<Integer>> commonSubexpr;
     private final HashSet<Integer> uninitializedVarErrors;
 
     /** initialize headBlock to empty block used to store constants. */
     public SSAIR() {
+        commonSubexpr = new HashMap<>();
         uninitializedVarErrors = new HashSet<>();
+
         instrInGeneratedOrder = new ArrayList<>();
         instrInGeneratedOrder.add(null);
         headBlock = new BasicBlock(BasicBlock.BlockType.BASIC);     // headBlock stores constants
@@ -171,9 +171,10 @@ public class SSAIR
         /** exists a commonSubexpression, but refers to difference operands, so may need to get reactivated later if
          *  one of the operands gets modified */
         else if ( referenceMatch != null ) {
-            i.eliminate();      // insert i as "invisible" instruction
-            currentBlock.insertInstruction(i);
+            i.eliminatedBy(referenceMatch.getId());                      // insert i as "invisible" instruction
+            currentBlock.insertInstruction(i);  // insert i to currentBlock
             instrInGeneratedOrder.add(i);
+            insertCommonSubexpr(referenceMatch.getId(), i.getId());     // insert into common subexpression map
             return i;
         }
         /** does not have any common subexpression match */
@@ -430,11 +431,30 @@ public class SSAIR
         for (int i = start; i < end; i++) {
             Instruction curr = instrInGeneratedOrder.get(i);
             if (curr.isBinary()) {
-                ((BinaryInstr)curr).replaceOperands(identId, oldValue, newValue);
+                if ( ((BinaryInstr)curr).replaceOperands(identId, oldValue, newValue) ) {
+                    reactivateIfNeeded( (BinaryInstr)curr );
+                }
             }
             else if (curr.isUnary()) {
                 ((UnaryInstr)curr).replaceOperand(identId, oldValue, newValue);
             }
+        }
+    }
+
+    /** called when instruction i's operands are modified, check if any instruction needs to be re-activated */
+    private void reactivateIfNeeded(BinaryInstr i) {
+        // an instruction can be both a common subexpression that eliminated other instructions, and also an eliminated
+        // expression itself
+        if (commonSubexpr.containsKey(i.getId())) {
+            for (Integer id : commonSubexpr.get(i.getId())) {     // re-activate all instruction that were eliminated by i
+                System.out.printf("re-activated instr %d\n", id);
+                instrInGeneratedOrder.get(id).activate();
+            }
+            commonSubexpr.remove(i.getId());
+        }
+        if (i.isEliminated()) {
+            System.out.printf("re-activated instr %d\n", i.getId());
+            i.activate();
         }
     }
 
@@ -454,6 +474,7 @@ public class SSAIR
         ((UnaryInstr)parent.getInstructions().getLast()).setOp( parent.getBranchTo().getFirstInstr() );
     }
 
+    /** adds branch instruction the end of input basic block. Inserts dummy BRANCH_TO if branchTo block is empty */
     public void addBranchInstr(BasicBlock target) {
         BasicBlock branchTo = target.getBranchTo();
         if (branchTo.isEmpty()) {
@@ -465,6 +486,53 @@ public class SSAIR
         target.insertInstruction( branchInstr );
         instrInGeneratedOrder.add(branchInstr);
     }
+
+
+          // -------------------------------- CSE METHODS ---------------------------------- //
+
+    private void insertCommonSubexpr(int cs, int eliminated) {
+        if (commonSubexpr.containsKey(cs)) {
+            commonSubexpr.get(cs).add(eliminated);
+        }
+        else {
+            List<Integer> list = new ArrayList<>();
+            list.add(eliminated);
+            commonSubexpr.put(cs, list);
+        }
+    }
+
+    /** called at the end of  */
+    public void propagateCommonSubexpr() {
+        HashMap<Integer, Integer> replaceMap = new HashMap<>();     // contains all instruction id's that should get replaced
+        for (int i = 1; i < instrInGeneratedOrder.size(); i++) {
+            Instruction instr = instrInGeneratedOrder.get(i);
+            if (instr.isEliminated()) {
+                replaceMap.put(instr.getId(), instr.getEliminatedBy());
+            }
+            checkOperands(instr, replaceMap);
+        }
+    }
+
+    /** checks operands of given instruction i to see if any match the instructions that need to be replaced */
+    private void checkOperands(Instruction i, HashMap<Integer, Integer> replaceMap) {
+        if (i.isBinary()) {
+            Instruction op1 = ((BinaryInstr)i).getOp1();
+            Instruction op2 = ((BinaryInstr)i).getOp2();
+            if (replaceMap.containsKey(op1.getId())) {
+                ((BinaryInstr)i).setOp1( instrInGeneratedOrder.get(replaceMap.get(op1.getId())) );
+            }
+            if (replaceMap.containsKey(op2.getId())) {
+                ((BinaryInstr)i).setOp2( instrInGeneratedOrder.get(replaceMap.get(op2.getId())) );
+            }
+        }
+        else if (i.isUnary()) {
+            Instruction op = ((UnaryInstr)i).getOp();
+            if (replaceMap.containsKey(op.getId())) {
+                ((UnaryInstr)i).setOp( instrInGeneratedOrder.get(replaceMap.get(op.getId())) );
+            }
+        }
+    }
+
 
                 // ------------------------- DEBUGGING METHODS --------------------------- //
 

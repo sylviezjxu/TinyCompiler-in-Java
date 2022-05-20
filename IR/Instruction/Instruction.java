@@ -6,7 +6,7 @@ public class Instruction
 
     private final int id;
     private final Op opType;
-    private boolean eliminated;
+    private Integer eliminatedBy;
 
     public enum Op {
         CONST, NEG,
@@ -21,15 +21,26 @@ public class Instruction
     public Instruction(Op opType) {
         this.opType = opType;
         this.id = Instruction.idCounter++;
-        this.eliminated = false;
     }
 
-    public void eliminate() {
-        this.eliminated = true;
+    /** returns true if instruction is eliminated and should not be considered for codegen */
+    public boolean isEliminated() {
+        return this.eliminatedBy != null;
     }
 
+    /** eliminates this instruction */
+    public void eliminatedBy(Integer i) {
+        this.eliminatedBy = i;
+    }
+
+    /** re-activates this instruction */
     public void activate() {
-        this.eliminated = false;
+        this.eliminatedBy = null;
+    }
+
+    /** returns id of the common subexpression that eliminated this instruction */
+    public Integer getEliminatedBy() {
+        return eliminatedBy;
     }
 
     public Op getOpType() {
@@ -55,7 +66,7 @@ public class Instruction
     }
 
     public String toString() {
-        if (eliminated) {
+        if (isEliminated()) {
             return String.format("[eliminated] %d: %s", id, opType.toString());
         }
         else {

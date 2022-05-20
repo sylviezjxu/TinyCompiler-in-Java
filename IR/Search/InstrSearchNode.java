@@ -15,15 +15,7 @@ public class InstrSearchNode {
         return instr;
     }
 
-    public void setInstr(Instruction instr) {
-        this.instr = instr;
-    }
-
     public InstrSearchNode getNext() {
         return next;
-    }
-
-    public void setNext(InstrSearchNode next) {
-        this.next = next;
     }
 }

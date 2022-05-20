@@ -44,13 +44,17 @@ public class BinaryInstr extends Instruction
         return op2IdReference;
     }
 
-    public void replaceOperands(int identId, Instruction oldValue, Instruction newValue) {
+    /** checks if operand value and references match, returns true if replacement happened. */
+    public boolean replaceOperands(int identId, Instruction oldValue, Instruction newValue) {
         if (op1.getId() == oldValue.getId() && op1IdReference != null && op1IdReference == identId) {
             op1 = newValue;
+            return true;
         }
         if (op2.getId() == oldValue.getId() && op2IdReference != null && op2IdReference == identId) {
             op2 = newValue;
+            return true;
         }
+        return false;
     }
 
     public boolean sameOperandIds(BinaryInstr other) {
