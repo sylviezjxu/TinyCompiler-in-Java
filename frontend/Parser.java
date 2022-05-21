@@ -24,6 +24,9 @@ public class Parser {
     public Parser(Lexer lexer) {
         this.lexer = lexer;
         this.IR = new SSAIR();
+    }
+
+    public void parse() {
         computation();
     }
 
@@ -431,7 +434,9 @@ public class Parser {
         statementSequence();
         next();     // consumes "}"
         next();     // consumes "."
-        IR.propagateCommonSubexpr();
+        if (!IR.error()) {
+            IR.propagateCommonSubexpr();
+        }
         if (peek() == null) {
             System.out.println("DONE PARSING!\n");
         }
@@ -441,7 +446,9 @@ public class Parser {
         IR.printCFG(lexer.getIdentifiersMappedToId(), true);
     }
 
+
     // ------------ HELPER FUNCTIONS ------------- //
+
     private Instruction computeRelOpBranchInstr(Token relOp, Instruction expr1, Instruction expr2) {
         // target Instruction has to be updated later else/join block has been generated
         if (checkIfTokenIs(relOp, "==")) {
@@ -495,9 +502,12 @@ public class Parser {
         System.out.println("COMPILE WARNING: " + message);
     }
 
+
     // ------------------------------- MAIN -------------------------------- //
+
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/CSE/tricky.tiny");
+        Lexer lexer = new Lexer("tests/CSE/tricky/really-tricky.tiny");
         Parser parser = new Parser(lexer);
+        parser.parse();
     }
 }

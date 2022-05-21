@@ -67,7 +67,7 @@ public class Instruction
 
     public String toString() {
         if (isEliminated()) {
-            return String.format("[eliminated] %d: %s", id, opType.toString());
+            return String.format("[eliminated by (%d)] %d: %s", eliminatedBy, id, opType.toString());
         }
         else {
             return String.format(" %d: %s", id, opType.toString());

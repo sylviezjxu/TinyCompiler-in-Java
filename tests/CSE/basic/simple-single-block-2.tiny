@@ -1,9 +1,11 @@
+// PASSED
 main
-var a, b, c, d;
+var a, b, c, d, i;
 {
     let a <- 10;
+    let i <- a;
     let b <- a + 1 * 2;
-    let c <- a + 1 * 2;
+    let c <- i + 1 * 2;
     let d <- c + a
 
 	call OutputNum(a);

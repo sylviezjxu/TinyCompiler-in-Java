@@ -160,12 +160,12 @@ public class SSAIR
     /** inserts Instruction into the current block and into list of instrInGeneratedOrder and returns it
      *  if instruction has already been computed before, do not insert */
     public Instruction insertInstrToCurrentBlock(Instruction i) {
-        BinaryInstr exactMatch = i.isAddSubDivMul() ? currentBlock.exactMatchCommonSubExpr(i) : null;
-        BinaryInstr referenceMatch = i.isAddSubDivMul() ? currentBlock.returnIfComputed(i) : null;
+        BinaryInstr exactMatch = i.isAddSubDivMul() ? currentBlock.searchExactMatch(i) : null;
+        BinaryInstr referenceMatch = i.isAddSubDivMul() ? currentBlock.searchIfComputed(i) : null;
         /** Instruction i has completely same operands references as an already computed expression, can just eliminate,
          *  guaranteed to never need to get re-activated */
         if ( exactMatch != null) {
-            Instruction.idCounter--;        // decrement idCounter, as if Instruction i was never generated
+            Instruction.idCounter--;
             return exactMatch;
         }
         /** exists a commonSubexpression, but refers to difference operands, so may need to get reactivated later if
@@ -490,6 +490,7 @@ public class SSAIR
 
           // -------------------------------- CSE METHODS ---------------------------------- //
 
+    /** inserts common subexpression id and the id of the instruction that it eliminated into the commonSubexpr map */
     private void insertCommonSubexpr(int cs, int eliminated) {
         if (commonSubexpr.containsKey(cs)) {
             commonSubexpr.get(cs).add(eliminated);
@@ -531,6 +532,10 @@ public class SSAIR
                 ((UnaryInstr)i).setOp( instrInGeneratedOrder.get(replaceMap.get(op.getId())) );
             }
         }
+    }
+
+    public boolean error() {
+        return !uninitializedVarErrors.isEmpty();
     }
 
 

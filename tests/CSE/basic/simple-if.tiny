@@ -1,3 +1,5 @@
+// PASSED
+
 main
 var a, b, c;
 {
@@ -6,10 +8,13 @@ var a, b, c;
     let c <- a + 1;
 
     if a < b then
-        let b <- b + 1;
+        let a <- a + 1;
     else
-        let c <- b + 1
+        let c <- b + 1;
+    fi;
+    let a <- 999 + c;
 
 	call OutputNum(a);
 	call OutputNum(b);
+	call OutputNum(c);
 }.

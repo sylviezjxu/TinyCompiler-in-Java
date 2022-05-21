@@ -3,7 +3,6 @@ package IR.BasicBlock;
 import IR.Instruction.BinaryInstr;
 import IR.Instruction.Instruction;
 import IR.Instruction.UnaryInstr;
-import IR.Search.InstrSearchNode;
 import IR.Search.OpSearcher;
 
 import java.util.*;
@@ -275,13 +274,13 @@ public class BasicBlock
 
     /** finds an already-computed common expression that not only has the same operands, but its operands refer to the
      *  same identifiers */
-    public BinaryInstr exactMatchCommonSubExpr(Instruction i) {
+    public BinaryInstr searchExactMatch(Instruction i) {
         return opSearcher.searchExactMatch((BinaryInstr) i);
     }
 
     /** checks if the given instruction has already been computed (same operands), returns if it has */
-    public BinaryInstr returnIfComputed(Instruction i) {
-        return opSearcher.returnIfComputed((BinaryInstr)i);
+    public BinaryInstr searchIfComputed(Instruction i) {
+        return opSearcher.searchIfComputed((BinaryInstr)i);
     }
 
     /** update this block's opSearcher to have the same headNodes as the other block */

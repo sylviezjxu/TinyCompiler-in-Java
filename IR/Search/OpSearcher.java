@@ -3,9 +3,7 @@ package IR.Search;
 import IR.Instruction.BinaryInstr;
 import IR.Instruction.Instruction;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
 /** The search data structure that keeps separates instructions based on opcodes. Used in eliminating common subexpression */
 public class OpSearcher {
@@ -27,11 +25,13 @@ public class OpSearcher {
 
     /** Two computations are Common subexpression if they have same OpType and same operands
      *  returns the instruction that's already been computed */
-    public BinaryInstr returnIfComputed(BinaryInstr instr) {
+    public BinaryInstr searchIfComputed(BinaryInstr instr) {
         InstrSearchNode current = linkedOps.get(instr.getOpType());
         while (current != null && current.getInstr() != null) {
             BinaryInstr currInstr = (BinaryInstr)current.getInstr();
-            if ( currInstr.sameOperandIds(instr) ) {
+            // don't want to find a match that's also eliminated. if there exists a match that's eliminated, that means
+            // there exists another match that's not eliminated (the one that matched with the match that's eliminated)
+            if ( currInstr.sameOperandIds(instr) && !currInstr.isEliminated() ) {
                 return currInstr;
             }
             current = current.getNext();

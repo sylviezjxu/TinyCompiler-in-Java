@@ -74,6 +74,9 @@ public class BinaryInstr extends Instruction
         else if (op2 == null) {
             return String.format("%s (%d) null", super.toString(), op1.getId());
         }
+        else if (getOpType() == Op.PHI) {
+            return String.format("%s.%d (%d) (%d)", super.toString(), op1IdReference, op1.getId(), op2.getId());
+        }
         else {
             return String.format("%s (%d) (%d)", super.toString(), op1.getId(), op2.getId());
         }
