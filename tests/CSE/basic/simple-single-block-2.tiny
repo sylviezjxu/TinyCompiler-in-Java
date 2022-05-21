@@ -1,4 +1,3 @@
-// PASSED
 main
 var a, b, c, d, i;
 {

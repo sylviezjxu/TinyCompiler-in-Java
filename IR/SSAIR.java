@@ -29,6 +29,7 @@ public class SSAIR
         currentBlock = headBlock;
     }
 
+
             // ------------------------- CFG GENERATION METHODS --------------------------- //
 
     public BasicBlock getCurrentBlock() {
@@ -135,6 +136,7 @@ public class SSAIR
         return currentBlock;
     }
 
+
         // ------------------------- SSA INSTRUCTION GENERATION METHODS --------------------------- //
 
     /** searches for and returns constant in headBlock, if not found, insert and return */
@@ -171,7 +173,7 @@ public class SSAIR
         /** exists a commonSubexpression, but refers to difference operands, so may need to get reactivated later if
          *  one of the operands gets modified */
         else if ( referenceMatch != null ) {
-            i.eliminatedBy(referenceMatch.getId());                      // insert i as "invisible" instruction
+            i.setEliminatedBy(referenceMatch.getId());                      // insert i as "invisible" instruction
             currentBlock.insertInstruction(i);  // insert i to currentBlock
             instrInGeneratedOrder.add(i);
             insertCommonSubexpr(referenceMatch.getId(), i.getId());     // insert into common subexpression map
@@ -441,23 +443,6 @@ public class SSAIR
         }
     }
 
-    /** called when instruction i's operands are modified, check if any instruction needs to be re-activated */
-    private void reactivateIfNeeded(BinaryInstr i) {
-        // an instruction can be both a common subexpression that eliminated other instructions, and also an eliminated
-        // expression itself
-        if (commonSubexpr.containsKey(i.getId())) {
-            for (Integer id : commonSubexpr.get(i.getId())) {     // re-activate all instruction that were eliminated by i
-                System.out.printf("re-activated instr %d\n", id);
-                instrInGeneratedOrder.get(id).activate();
-            }
-            commonSubexpr.remove(i.getId());
-        }
-        if (i.isEliminated()) {
-            System.out.printf("re-activated instr %d\n", i.getId());
-            i.activate();
-        }
-    }
-
     /** returns hashset of init errors */
     public HashSet<Integer> getUninitializedVarErrors() {
         return uninitializedVarErrors;
@@ -502,7 +487,44 @@ public class SSAIR
         }
     }
 
-    /** called at the end of  */
+    /** called when instruction i's operands are modified, check if any instruction needs to be re-activated */
+    private void reactivateIfNeeded(BinaryInstr instr) {
+        // only activate first one, and insert it as the key, it is now the eliminating common subexpression, if its
+        // value is empty, can just eliminate
+        if (commonSubexpr.containsKey(instr.getId())) {
+            List<Integer> eliminated = commonSubexpr.get(instr.getId());
+            int activate = eliminated.get(0);
+            instrInGeneratedOrder.get(activate).activate();     // activate the first, and set it as the new common subexpr
+            if (eliminated.size() > 1) {
+                eliminated.remove(0);
+                commonSubexpr.put(activate, eliminated);
+                updateEliminatedBy(eliminated, activate);
+            }
+            commonSubexpr.remove(instr.getId());
+        }
+        // if an eliminated instr has its operands changed, before activating it, remove it commonSubexpr map
+        if (instr.isEliminated()) {
+            System.out.printf("re-activated instr %d\n", instr.getId());
+            List<Integer> eliminated = commonSubexpr.get(instr.getEliminatedBy());
+            for (int i = 0; i < eliminated.size(); i++) {
+                if (eliminated.get(i) == instr.getId()) {
+                    eliminated.remove(i);
+                    break;
+                }
+            }
+            instr.activate();
+        }
+    }
+
+    /** given list of instruction ids, update all instructions to be eliminated by the given newVal */
+    private void updateEliminatedBy(List<Integer> eliminated, int newVal) {
+        for (int i : eliminated) {
+            instrInGeneratedOrder.get(i).setEliminatedBy(newVal);
+        }
+    }
+
+    /** called at the end of computation() to replace all occurrences of eliminated instructions with the common subexpr
+     *  that eliminated it */
     public void propagateCommonSubexpr() {
         HashMap<Integer, Integer> replaceMap = new HashMap<>();     // contains all instruction id's that should get replaced
         for (int i = 1; i < instrInGeneratedOrder.size(); i++) {
@@ -516,7 +538,7 @@ public class SSAIR
 
     /** checks operands of given instruction i to see if any match the instructions that need to be replaced */
     private void checkOperands(Instruction i, HashMap<Integer, Integer> replaceMap) {
-        if (i.isBinary()) {
+        if (i.isBinary() && !((BinaryInstr)i).hasNullOperands()) {
             Instruction op1 = ((BinaryInstr)i).getOp1();
             Instruction op2 = ((BinaryInstr)i).getOp2();
             if (replaceMap.containsKey(op1.getId())) {
@@ -526,7 +548,7 @@ public class SSAIR
                 ((BinaryInstr)i).setOp2( instrInGeneratedOrder.get(replaceMap.get(op2.getId())) );
             }
         }
-        else if (i.isUnary()) {
+        else if (i.isUnary() && ((UnaryInstr)i).getOp() != null) {
             Instruction op = ((UnaryInstr)i).getOp();
             if (replaceMap.containsKey(op.getId())) {
                 ((UnaryInstr)i).setOp( instrInGeneratedOrder.get(replaceMap.get(op.getId())) );
@@ -534,12 +556,13 @@ public class SSAIR
         }
     }
 
+    /** returns true if there exists any uninitialized var errors */
     public boolean error() {
         return !uninitializedVarErrors.isEmpty();
     }
 
 
-                // ------------------------- DEBUGGING METHODS --------------------------- //
+          // ------------------------- VISUALIZATION METHODS --------------------------- //
 
     private String getIdentifierName(int id, Map<String, Integer> lexerMap) {
         for (Map.Entry<String, Integer> set : lexerMap.entrySet()) {

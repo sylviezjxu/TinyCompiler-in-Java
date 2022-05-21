@@ -66,6 +66,10 @@ public class BinaryInstr extends Instruction
                 Objects.equals(op2IdReference, other.op2IdReference);
     }
 
+    public boolean hasNullOperands() {
+        return op1 == null || op2 == null;
+    }
+
     @Override
     public String toString() {
         if (op1 == null) {

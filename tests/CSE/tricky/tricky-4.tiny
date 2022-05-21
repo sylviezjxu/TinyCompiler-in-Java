@@ -1,0 +1,22 @@
+main
+var a, b, c, x, y, z;
+{
+    let a <- call InputNum();
+    let b <- a;
+    let c <- b;
+    let x <- 0;
+    let y <- 0;
+    let z <- 0;
+
+	while a < 1 do
+	    let x <- a + 1;
+        let y <- b + 1;
+        let z <- c + 1;
+	    let a <- a + 1;
+	od;
+
+	call OutputNum(a);
+	call OutputNum(b);
+	call OutputNum(x);
+	call OutputNum(y);
+}.

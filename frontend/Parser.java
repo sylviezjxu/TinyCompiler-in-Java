@@ -94,7 +94,7 @@ public class Parser {
                 res = new BinaryInstr(Instruction.Op.DIV, op1, op2);
             }
             ((BinaryInstr)res).setOpIdReferences(op1IdRef, op2IdRef);
-            op1 = res = IR.insertInstrToCurrentBlock(res);;
+            op1 = res = IR.insertInstrToCurrentBlock(res);
             op1IdRef = null;
             termIsVarRef = false;
         }
@@ -113,7 +113,7 @@ public class Parser {
         }
     }
 
-    /** expression() returns the Instruction object that is the value of the expressionn */
+    /** expression() returns the Instruction object that is the value of the expression */
     public Instruction expression() {
         // DONE
         System.out.println("expression");
@@ -169,7 +169,7 @@ public class Parser {
             BinaryInstr cmpInstr = new BinaryInstr(Instruction.Op.CMP, expr1, expr2);
             cmpInstr.setOpIdReferences(op1IdRef, op2IdRef);
             IR.insertInstrToCurrentBlock( cmpInstr );
-            IR.insertInstrToCurrentBlock( computeRelOpBranchInstr(relOp, expr1, expr2) );
+            IR.insertInstrToCurrentBlock( computeRelOpBranchInstr(relOp) );
         } else {
             error("Invalid relation");
         }
@@ -399,7 +399,7 @@ public class Parser {
             next();         // consumes identifier
             while (checkIfTokenIs(peek(), ",")) {
                 next();
-                next();     // consumes identifiier
+                next();     // consumes identifier
             }
         }
         next();     // consumes ")"
@@ -449,7 +449,7 @@ public class Parser {
 
     // ------------ HELPER FUNCTIONS ------------- //
 
-    private Instruction computeRelOpBranchInstr(Token relOp, Instruction expr1, Instruction expr2) {
+    private Instruction computeRelOpBranchInstr(Token relOp) {
         // target Instruction has to be updated later else/join block has been generated
         if (checkIfTokenIs(relOp, "==")) {
             return new UnaryInstr(Instruction.Op.BNE, null);
@@ -506,7 +506,7 @@ public class Parser {
     // ------------------------------- MAIN -------------------------------- //
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/CSE/tricky/really-tricky.tiny");
+        Lexer lexer = new Lexer("tests/SSA/varInits/var-init-after-if.tiny");
         Parser parser = new Parser(lexer);
         parser.parse();
     }

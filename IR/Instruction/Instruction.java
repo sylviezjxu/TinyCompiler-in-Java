@@ -29,18 +29,18 @@ public class Instruction
     }
 
     /** eliminates this instruction */
-    public void eliminatedBy(Integer i) {
+    public void setEliminatedBy(Integer i) {
         this.eliminatedBy = i;
-    }
-
-    /** re-activates this instruction */
-    public void activate() {
-        this.eliminatedBy = null;
     }
 
     /** returns id of the common subexpression that eliminated this instruction */
     public Integer getEliminatedBy() {
         return eliminatedBy;
+    }
+
+    /** re-activates this instruction */
+    public void activate() {
+        this.eliminatedBy = null;
     }
 
     public Op getOpType() {

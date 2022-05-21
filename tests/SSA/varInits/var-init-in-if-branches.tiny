@@ -1,10 +1,13 @@
 main
-var a;
+var a, b;
+
 {
+    let a <- call InputNum();
+
     if 1 < 100 then
-        let a <- 1;
+        let b <- a + 1;
     else
-        let a <- 100;
+        let b <- a + 100;
     fi;
 	call OutputNum(a);
 }.
