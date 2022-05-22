@@ -11,7 +11,7 @@ public class Instruction
     public enum Op {
         CONST, NEG,
         ADD, SUB, MUL, DIV, CMP,
-        ADDA, LOAD, STORE, PHI, END,
+        ADDA, LOAD, STORE, PHI, MJU, END,
         BRA, BNE, BEQ,
         BLE, BLT, BGE, BGT,
         READ, WRITE, WRITENL,

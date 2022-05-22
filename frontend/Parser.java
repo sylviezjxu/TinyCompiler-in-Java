@@ -4,7 +4,8 @@ import IR.BasicBlock.BasicBlock;
 import IR.Instruction.Instruction;
 import IR.Instruction.BinaryInstr;
 import IR.Instruction.UnaryInstr;
-import IR.SSAIR;
+import IR.SSAIR.GlobalSSAIR;
+import IR.SSAIR.SSAIR;
 import errors.TinySyntaxError;
 
 import java.io.IOException;
@@ -13,7 +14,7 @@ import java.io.IOException;
 public class Parser {
 
     private final Lexer lexer;
-    private final SSAIR IR;
+    private final GlobalSSAIR IR;
 
     // helper variables for mapping identifier to instruction operands
     private boolean termIsVarRef = false;
@@ -23,7 +24,7 @@ public class Parser {
 
     public Parser(Lexer lexer) {
         this.lexer = lexer;
-        this.IR = new SSAIR();
+        this.IR = new GlobalSSAIR();
     }
 
     public void parse() {
@@ -382,7 +383,7 @@ public class Parser {
     public void functionDeclaration() {
         System.out.println("function declaration");
         if (checkIfTokenIs(peek(), "void")) {
-            next();
+            next();     // consumes "void"
         }
         next();     // consumes "function"
         next();     // consumes identifier
@@ -506,7 +507,7 @@ public class Parser {
     // ------------------------------- MAIN -------------------------------- //
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/SSA/varInits/var-init-after-if.tiny");
+        Lexer lexer = new Lexer("tests/SSA/while-if-if.tiny");
         Parser parser = new Parser(lexer);
         parser.parse();
     }

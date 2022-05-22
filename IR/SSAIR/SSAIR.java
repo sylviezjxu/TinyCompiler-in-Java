@@ -1,4 +1,4 @@
-package IR;
+package IR.SSAIR;
 
 import IR.BasicBlock.BasicBlock;
 import IR.Instruction.ConstantInstr;
@@ -427,7 +427,7 @@ public class SSAIR
     /** takes an identifierId because the instructions that get replaced while propagating not only need to be
      *  referring to the same instruction, it also needs to be referring to the same specific identifier, as the same
      *  instruction reference could be referring to different identifiers. */
-    public void propagateWhilePhiDownstream(BasicBlock whileBlock, int identId, Instruction oldValue, Instruction newValue) {
+    private void propagateWhilePhiDownstream(BasicBlock whileBlock, int identId, Instruction oldValue, Instruction newValue) {
         int start = whileBlock.getFirstNonPhiInstrId(); // first instruction id in whileBlock thats not phi
         int end = newValue.getId();
         for (int i = start; i < end; i++) {
@@ -573,7 +573,7 @@ public class SSAIR
         return "Not Found";
     }
 
-    public String symbolTableToString(Map<Integer, Instruction> symbolTable, Map<String, Integer> lexerMap) {
+    private String symbolTableToString(Map<Integer, Instruction> symbolTable, Map<String, Integer> lexerMap) {
         ArrayList<String> idStrs = new ArrayList<>();
         for (Map.Entry<Integer, Instruction> set : symbolTable.entrySet()) {
             if (set.getValue() == null) {
@@ -634,4 +634,5 @@ public class SSAIR
 //            }
 //        }
     }
+
 }

@@ -184,7 +184,6 @@ public class BasicBlock
         // when removing the dummy BRANCH_TO, update whatever instruction is branching to that deleted instr
         else if (instructions.size() >= 1 && instructions.getFirst().getOpType() == Instruction.Op.BRANCH_TO) {
             instructions.removeFirst();
-            //Instruction.idCounter--;        // decrement idCounter, as if BRANCH_TO was never generated
             instructions.add(i);
             if (branchFrom != null) {
                 ((UnaryInstr)branchFrom.instructions.getLast()).setOp(i);
