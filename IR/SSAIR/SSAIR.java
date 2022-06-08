@@ -1,17 +1,14 @@
 package IR.SSAIR;
 
 import IR.BasicBlock.BasicBlock;
-import IR.Instruction.ConstantInstr;
-import IR.Instruction.Instruction;
-import IR.Instruction.BinaryInstr;
-import IR.Instruction.UnaryInstr;
+import IR.Instruction.*;
 
 import java.util.*;
 
 /** This is a dynamic data structure made up of doubly linked Basic Blocks, and is the SSA Intermediate Representation. */
 public class SSAIR
 {
-    private final ArrayList<Instruction> instrInGeneratedOrder;  // <- for propogating phi's in while CFG
+    private static ArrayList<Instruction> instrInGeneratedOrder;  // <- for propogating phi's in while CFG
     private final BasicBlock headBlock;
     private BasicBlock currentBlock;
 
@@ -142,7 +139,7 @@ public class SSAIR
     /** searches for and returns constant in headBlock, if not found, insert and return */
     public Instruction addConstantIfNotExists(int c) {
         for (Instruction instr : headBlock.getInstructions()) {
-            if ( ((ConstantInstr) instr).getValue() == c ) {
+            if ( instr.getClass() == ConstantInstr.class && ((ConstantInstr) instr).getValue() == c ) {
                 return instr;
             }
         }
@@ -150,6 +147,12 @@ public class SSAIR
         headBlock.insertInstruction(res);
         instrInGeneratedOrder.add(res);
         return res;
+    }
+
+    /** inserts register instruction into head block. Used for function definitions. */
+    public void insertRegisterInstrToHead(RegisterInstr i) {
+        headBlock.insertInstruction(i);
+        instrInGeneratedOrder.add(i);
     }
 
     /** add variable declaration to current block's symbol table and initialize to null

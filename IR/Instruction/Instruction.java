@@ -15,7 +15,8 @@ public class Instruction
         BRA, BNE, BEQ,
         BLE, BLT, BGE, BGT,
         READ, WRITE, WRITENL,
-        BRANCH_TO
+        BRANCH_TO, CALL,
+        REG
     }
 
     public Instruction(Op opType) {
@@ -52,7 +53,7 @@ public class Instruction
     }
 
     public boolean isBinary() {
-        return isAddSubDivMul() || opType == Op.CMP || opType == Op.STORE || opType == Op.PHI;
+        return isAddSubDivMul() || opType == Op.CMP || opType == Op.STORE || opType == Op.PHI || opType == Op.MJU;
     }
 
     public boolean isUnary() {

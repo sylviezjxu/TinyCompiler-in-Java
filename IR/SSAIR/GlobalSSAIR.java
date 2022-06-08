@@ -3,6 +3,7 @@ package IR.SSAIR;
 import IR.BasicBlock.BasicBlock;
 import IR.Function.Function;
 import IR.Instruction.Instruction;
+import IR.Instruction.RegisterInstr;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -12,17 +13,28 @@ import java.util.Map;
 /** the global SSAIR, stores a list of Functions of function declarations and the current SSA CFG */
 public class GlobalSSAIR
 {
+    private final SSAIR globalIR;
     private final List<Function> functions;
+
     private SSAIR currentIR;
-    // currentFunction ?
+    private Function currentFunction;
 
     public GlobalSSAIR() {
         functions = new ArrayList<>();
-        currentIR = new SSAIR();
+        globalIR = currentIR = new SSAIR();
     }
 
-    public void setCurrentIR(SSAIR currentIR) {
-        this.currentIR = currentIR;
+    public void restoreGlobalIR() {
+        this.currentIR = globalIR;
+    }
+
+    public boolean functionIsVoid(int id) {
+        for (Function f : functions) {
+            if (f.getFunctionIdent() == id) {
+                return f.isVoid();
+            }
+        }
+        return false;
     }
 
     // ---------------------------- FUNCTION METHODS ----------------------------- //
@@ -30,12 +42,33 @@ public class GlobalSSAIR
     /** create new function object and add to list of Function, set currentIr to funcIR */
     public void enterFunctionDef() {
         SSAIR funcIR = new SSAIR();
-
-
+        Function thisFunc = new Function(funcIR);
+        functions.add(thisFunc);
         currentIR = funcIR;
+        currentFunction = thisFunc;
     }
 
+    /** set current function's isVoid to true */
+    public void currentFunctionIsVoid() {
+        currentFunction.setIsVoid();
+    }
 
+    public void setCurrentFunctionIdent(int id) {
+        currentFunction.setFunctionIdent(id);
+    }
+
+    public void addParamToCurrentFunction(int id) {
+        currentFunction.addParam(id);
+    }
+
+    /** adds current function params into function's SSAIR's symbol table, values are represented as RegisterInstr */
+    public void initializeParamsVarDecl() {
+        for (int id: currentFunction.getParams()) {
+            RegisterInstr reg = new RegisterInstr();
+            currentIR.insertRegisterInstrToHead(reg);
+            currentIR.assign(id, reg);
+        }
+    }
 
     // ---------- any IR method calls in Parser.java is called on the current IR ---------- //
     // ------------------------- CFG GENERATION METHODS --------------------------- //

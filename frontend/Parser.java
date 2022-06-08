@@ -5,7 +5,6 @@ import IR.Instruction.Instruction;
 import IR.Instruction.BinaryInstr;
 import IR.Instruction.UnaryInstr;
 import IR.SSAIR.GlobalSSAIR;
-import IR.SSAIR.SSAIR;
 import errors.TinySyntaxError;
 
 import java.io.IOException;
@@ -14,7 +13,7 @@ import java.io.IOException;
 public class Parser {
 
     private final Lexer lexer;
-    private final GlobalSSAIR IR;
+    private final GlobalSSAIR GlobalIR;
 
     // helper variables for mapping identifier to instruction operands
     private boolean termIsVarRef = false;
@@ -24,7 +23,7 @@ public class Parser {
 
     public Parser(Lexer lexer) {
         this.lexer = lexer;
-        this.IR = new GlobalSSAIR();
+        this.GlobalIR = new GlobalSSAIR();
     }
 
     public void parse() {
@@ -35,7 +34,7 @@ public class Parser {
     public Instruction variableReference() {
         System.out.println("variable reference: " + this.lexer.debugToken(peek()));
         Token var = next();
-        Instruction value = IR.getIdentifierInstruction(var.getIdValue());
+        Instruction value = GlobalIR.getIdentifierInstruction(var.getIdValue());
         if (value == null) {
             warning( String.format("variable %s is referenced but never initialized.",
                      lexer.getIdentifierName(var.getIdValue())) );
@@ -48,7 +47,7 @@ public class Parser {
         // DONE
         System.out.println("number" + this.lexer.debugToken(peek()));
         Token var = next();
-        return IR.addConstantIfNotExists(var.getIdValue());
+        return GlobalIR.addConstantIfNotExists(var.getIdValue());
     }
 
     /** factor() returns the Instruction that represents the value of the var/constant/expression/function call */
@@ -95,7 +94,7 @@ public class Parser {
                 res = new BinaryInstr(Instruction.Op.DIV, op1, op2);
             }
             ((BinaryInstr)res).setOpIdReferences(op1IdRef, op2IdRef);
-            op1 = res = IR.insertInstrToCurrentBlock(res);
+            op1 = res = GlobalIR.insertInstrToCurrentBlock(res);
             op1IdRef = null;
             termIsVarRef = false;
         }
@@ -134,7 +133,7 @@ public class Parser {
                 res = new BinaryInstr(Instruction.Op.SUB, op1, op2);
             }
             ((BinaryInstr)res).setOpIdReferences(op1IdRef, op2IdRef);
-            op1 = res = IR.insertInstrToCurrentBlock(res);
+            op1 = res = GlobalIR.insertInstrToCurrentBlock(res);
             op1IdRef = null;
             exprIsVarRef = false;
         }
@@ -169,8 +168,8 @@ public class Parser {
             op2IdRef = checkVarRefExpr();
             BinaryInstr cmpInstr = new BinaryInstr(Instruction.Op.CMP, expr1, expr2);
             cmpInstr.setOpIdReferences(op1IdRef, op2IdRef);
-            IR.insertInstrToCurrentBlock( cmpInstr );
-            IR.insertInstrToCurrentBlock( computeRelOpBranchInstr(relOp) );
+            GlobalIR.insertInstrToCurrentBlock( cmpInstr );
+            GlobalIR.insertInstrToCurrentBlock( computeRelOpBranchInstr(relOp) );
         } else {
             error("Invalid relation");
         }
@@ -193,7 +192,7 @@ public class Parser {
             Token var = next();     // consumes identifier
             next();     // consumes "<-"
             Instruction value = expression();
-            IR.assign(var.getIdValue(), value);
+            GlobalIR.assign(var.getIdValue(), value);
             System.out.println("variable assigned: " + lexer.debugToken(var));
         }
         else {
@@ -209,7 +208,7 @@ public class Parser {
             next();
             next();
             Instruction toAdd = new Instruction(Instruction.Op.READ);
-            IR.insertInstrToCurrentBlock(toAdd);
+            GlobalIR.insertInstrToCurrentBlock(toAdd);
             return toAdd;
         }
         else {
@@ -226,49 +225,46 @@ public class Parser {
         Token funcName = next();
         if (checkIfTokenIs(funcName, "OutputNum")) {
             next();     // consumes "("
-            Token arg = next();
+            Instruction arg = expression();
             next();     // consumes ")"
-            UnaryInstr toAdd;
-            if (arg.isLiteral()) {
-                toAdd = new UnaryInstr(Instruction.Op.WRITE, IR.addConstantIfNotExists(arg.getIdValue()));
-            }
-            else {
-                toAdd = new UnaryInstr(Instruction.Op.WRITE, IR.getIdentifierInstruction(arg.getIdValue()));
-            }
-            toAdd.setOpIdReference(arg.getIdValue());
-            IR.insertInstrToCurrentBlock(toAdd);
+            UnaryInstr toAdd = new UnaryInstr(Instruction.Op.WRITE, arg);
+            toAdd.setOpIdReference(checkVarRefExpr());
+            GlobalIR.insertInstrToCurrentBlock(toAdd);
         }
         else if (checkIfTokenIs(funcName, "OutputNewLine")) {
             next();
             next();
             Instruction toAdd = new Instruction(Instruction.Op.WRITENL);
-            IR.insertInstrToCurrentBlock(toAdd);
+            GlobalIR.insertInstrToCurrentBlock(toAdd);
+        }
+        else if (GlobalIR.functionIsVoid(funcName.getIdValue())) {
+            System.out.println("function is void, function call is VALID!");
+            functionCall(funcName);             // user defined void function
         }
         else {
-            // user defined void function
-            // checkVoid()
-            functionCall();
+            error("invalid function call, function called here must be void.");
         }
     }
 
-    public void functionCall() {
+    public void functionCall(Token funcName) {
         System.out.println("function call");
-        next();     // consumes call
-        Token funcName = next();     // consumes identifier (function symbol)
+        // GlobalIR.functionCall()...
         if (checkIfTokenIs(peek(), "(")) {
-            next();
+            next();         // consumes "("
             if (!checkIfTokenIs(peek(), ")")) {
-                // replace body w helper function mapArguments()
                 expression();
                 while (checkIfTokenIs(peek(), ",")) {
                     next();
                     expression();
                 }
             }
-            next();
+            next();         // consumes ")"
+            // GlobalIR.callFunction();
         } else {
             if (!functionHasNoParams(funcName)) {       // error if function has parameters but no arguments
                 error("invalid function call, function called with no arguments");
+            } else {
+                // call function
             }
         }
     }
@@ -277,26 +273,26 @@ public class Parser {
     public void ifStatement() {
         System.out.println("if statement");
         next();                                          // consumes "if"
-        BasicBlock parent = IR.enterIf();                // save parent ifBlock
+        BasicBlock parent = GlobalIR.enterIf();                // save parent ifBlock
         BasicBlock join = parent.getBranchTo();          // save join block
         relation();                                      // cmp instructions get added to the parent block
         next();                                          // consumes "then"
-        IR.setCurrentBlock(parent.getFallThruTo());      // current = then-block
+        GlobalIR.setCurrentBlock(parent.getFallThruTo());      // current = then-block
         statementSequence();
         if (checkIfTokenIs(peek(), "else")) {
             System.out.println("else");
             next();                                             // consumes "else"
-            IR.setCurrentBlock(IR.generateElseBlock(parent));   // current = elseBlock
+            GlobalIR.setCurrentBlock(GlobalIR.generateElseBlock(parent));   // current = elseBlock
             statementSequence();
-            IR.addBranchInstr(join.getBranchFrom());            // adds branch instruction from last block in if-then branch to if-join
+            GlobalIR.addBranchInstr(join.getBranchFrom());            // adds branch instruction from last block in if-then branch to if-join
         }
-        IR.setBranchInstr(parent);                      // set cmp branch instr after generating then/else/join
+        GlobalIR.setBranchInstr(parent);                      // set cmp branch instr after generating then/else/join
         next();                                         // consumes "fi"
-        IR.setCurrentBlock(IR.findJoinBlock());         // current = join
-        IR.propagateNestedIf(parent);                   // propagate phi, the join block should only have phi functions
+        GlobalIR.setCurrentBlock(GlobalIR.findJoinBlock());         // current = join
+        GlobalIR.propagateNestedIf(parent);                   // propagate phi, the join block should only have phi functions
         // if currentBlock is un-nested, update its Symbol Table to have all identifiers mapped to correct values
-        if (!IR.getCurrentBlock().isNested()) {
-            IR.getCurrentBlock().updateSymbolTableFromParent(parent);
+        if (!GlobalIR.getCurrentBlock().isNested()) {
+            GlobalIR.getCurrentBlock().updateSymbolTableFromParent(parent);
         }
     }
 
@@ -304,20 +300,20 @@ public class Parser {
     public void whileStatement() {
         System.out.println("while statement");
         next();                                     // consumes "while"
-        BasicBlock parent = IR.enterWhile();        // parent = whileBlock
+        BasicBlock parent = GlobalIR.enterWhile();        // parent = whileBlock
         relation();                                 // cmp instructions get added to while-block
         next();                                     // consumes "do"
-        IR.setCurrentBlock(parent.getFallThruTo()); // current = while-body
+        GlobalIR.setCurrentBlock(parent.getFallThruTo()); // current = while-body
         statementSequence();
-        IR.addBranchInstr(IR.getCurrentBlock());    // adds branch instruction from while-body to parent-while
-        IR.setBranchInstr(parent);                  // updates operand of parent block's last branch instruction
+        GlobalIR.addBranchInstr(GlobalIR.getCurrentBlock());    // adds branch instruction from while-body to parent-while
+        GlobalIR.setBranchInstr(parent);                  // updates operand of parent block's last branch instruction
         next();                                     // consumes "od"
-        IR.setCurrentBlock(parent);                 // set currentBlock to block w phi's, for helper functions
-        IR.propagateNestedWhile(parent);
-        IR.setCurrentBlock(parent.getBranchTo());   // parent = while-follow
+        GlobalIR.setCurrentBlock(parent);                 // set currentBlock to block w phi's, for helper functions
+        GlobalIR.propagateNestedWhile(parent);
+        GlobalIR.setCurrentBlock(parent.getBranchTo());   // parent = while-follow
         // if whileFollow is un-nested, update its Symbol Table to have all updated variable values
-        if (!IR.getCurrentBlock().isNested()) {
-            IR.getCurrentBlock().updateSymbolTableFromParent(parent);
+        if (!GlobalIR.getCurrentBlock().isNested()) {
+            GlobalIR.getCurrentBlock().updateSymbolTableFromParent(parent);
         }
     }
 
@@ -327,7 +323,7 @@ public class Parser {
         Token peek = peek();
         if (peek.isUserDefinedIdentifier() || peek.isLiteral() ||
                 checkIfTokenIs(peek, "(") || checkIfTokenIs(peek, "call")) {
-            expression();
+            Instruction res = expression();
         }
     }
 
@@ -369,12 +365,12 @@ public class Parser {
         System.out.println("variable declaration");
         next();     // consumes "var"
         Token var = next();     // consumes identifier
-        IR.addVarDecl(var.getIdValue());     // add identifier id to symbol table
+        GlobalIR.addVarDecl(var.getIdValue());     // add identifier id to symbol table
         System.out.println("variable declared: " + lexer.debugToken(var));
         while (checkIfTokenIs(peek(), ",")) {
             next();     // consumes ","
             var = next();     // consumes identifier
-            IR.addVarDecl(var.getIdValue());     // add identifier id to symbol table
+            GlobalIR.addVarDecl(var.getIdValue());     // add identifier id to symbol table
             System.out.println("variable declared: " + lexer.debugToken(var));
         }
         next();     // consumes ';'
@@ -382,25 +378,31 @@ public class Parser {
 
     public void functionDeclaration() {
         System.out.println("function declaration");
+        GlobalIR.enterFunctionDef();
         if (checkIfTokenIs(peek(), "void")) {
             next();     // consumes "void"
+            GlobalIR.currentFunctionIsVoid();
         }
         next();     // consumes "function"
-        next();     // consumes identifier
+        Token funcIdent = next();     // consumes identifier
+        GlobalIR.setCurrentFunctionIdent(funcIdent.getIdValue());       // save function name identifier
         formalParameters();
         next();     // consumes ";"
         functionBody();
         next();     // consumes ";"
+        GlobalIR.restoreGlobalIR();          // restore global CFG
     }
 
     public void formalParameters() {
         System.out.println("formal parameters");
         next();     // consumes "("
         if (peek().isUserDefinedIdentifier()) {
-            next();         // consumes identifier
+            Token param = next();         // consumes identifier
+            GlobalIR.addParamToCurrentFunction(param.getIdValue());
             while (checkIfTokenIs(peek(), ",")) {
-                next();
-                next();     // consumes identifier
+                next();     // consumes ","
+                param = next();     // consumes identifier
+                GlobalIR.addParamToCurrentFunction(param.getIdValue());
             }
         }
         next();     // consumes ")"
@@ -408,6 +410,8 @@ public class Parser {
 
     public void functionBody() {
         System.out.println("function body");
+        GlobalIR.setCurrentBlock(GlobalIR.generateFallThruBlock(BasicBlock.BlockType.BASIC));      // generate new block for varDecl (linear, no branches)
+        GlobalIR.initializeParamsVarDecl();     // assigns params to argument registers
         while (checkIfTokenIs(peek(), "var")) {
             variableDeclaration();
         }
@@ -424,7 +428,7 @@ public class Parser {
     public void computation() {
         System.out.println("computation");
         next();     // consumes "main"
-        IR.setCurrentBlock(IR.generateFallThruBlock(BasicBlock.BlockType.BASIC));      // generate new block for varDecl (linear, no branches)
+        GlobalIR.setCurrentBlock(GlobalIR.generateFallThruBlock(BasicBlock.BlockType.BASIC));      // generate new block for varDecl (linear, no branches)
         while (checkIfTokenIs(peek(), "var")) {
             variableDeclaration();
         }
@@ -435,16 +439,16 @@ public class Parser {
         statementSequence();
         next();     // consumes "}"
         next();     // consumes "."
-        if (!IR.error()) {
-            IR.propagateCommonSubexpr();
+        if (!GlobalIR.error()) {
+            GlobalIR.propagateCommonSubexpr();
         }
         if (peek() == null) {
             System.out.println("DONE PARSING!\n");
         }
-        for (Integer var : IR.getUninitializedVarErrors()) {
+        for (Integer var : GlobalIR.getUninitializedVarErrors()) {
             System.out.printf("ERROR: VARIABLE %s NOT INITIALIZED ON ALL PATHS\n", lexer.getIdentifierName(var));
         }
-        IR.printCFG(lexer.getIdentifiersMappedToId(), true);
+        GlobalIR.printCFG(lexer.getIdentifiersMappedToId(), true);
     }
 
 
@@ -507,7 +511,7 @@ public class Parser {
     // ------------------------------- MAIN -------------------------------- //
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/SSA/while-if-if.tiny");
+        Lexer lexer = new Lexer("tests/Function/simple.tiny");
         Parser parser = new Parser(lexer);
         parser.parse();
     }
