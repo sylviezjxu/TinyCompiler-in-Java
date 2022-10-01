@@ -17,6 +17,6 @@ public class RegisterInstr extends Instruction
     }
 
     public String toString() {
-        return String.format("%s: argR%d", super.toString(), regId);
+        return String.format("%s #R%d", super.toString(), regId);
     }
 }

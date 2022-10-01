@@ -6,10 +6,15 @@ import java.util.List;
 public class FunctionCall extends Instruction
 {
     private Integer functionId;
-    private List<Instruction> args;
+    private String fname;
 
-    public FunctionCall() {
+    public FunctionCall(int id, String fname) {
         super(Op.CALL);
-        args = new ArrayList<>();
+        this.functionId = id;
+        this.fname = fname;
+    }
+
+    public String toString() {
+        return String.format("%s %s", super.toString(), fname);
     }
 }

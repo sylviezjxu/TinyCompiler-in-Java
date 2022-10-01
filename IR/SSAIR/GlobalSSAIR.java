@@ -2,6 +2,7 @@ package IR.SSAIR;
 
 import IR.BasicBlock.BasicBlock;
 import IR.Function.Function;
+import IR.Instruction.FunctionCall;
 import IR.Instruction.Instruction;
 import IR.Instruction.RegisterInstr;
 
@@ -28,15 +29,6 @@ public class GlobalSSAIR
         this.currentIR = globalIR;
     }
 
-    public boolean functionIsVoid(int id) {
-        for (Function f : functions) {
-            if (f.getFunctionIdent() == id) {
-                return f.isVoid();
-            }
-        }
-        return false;
-    }
-
     // ---------------------------- FUNCTION METHODS ----------------------------- //
 
     /** create new function object and add to list of Function, set currentIr to funcIR */
@@ -53,10 +45,12 @@ public class GlobalSSAIR
         currentFunction.setIsVoid();
     }
 
+    /** sets current function's id */
     public void setCurrentFunctionIdent(int id) {
-        currentFunction.setFunctionIdent(id);
+        currentFunction.setFunctionId(id);
     }
 
+    /** adds parameter's token id to current function's list of params */
     public void addParamToCurrentFunction(int id) {
         currentFunction.addParam(id);
     }
@@ -68,6 +62,24 @@ public class GlobalSSAIR
             currentIR.insertRegisterInstrToHead(reg);
             currentIR.assign(id, reg);
         }
+    }
+
+    /** calls current function by inserting call instruction */
+    public Instruction callCurrentFunction(int id, String fname) {
+        Instruction call = new FunctionCall(id, fname);
+        currentIR.insertInstrToCurrentBlock(call);
+        return call;
+
+    }
+
+    /** given the function id, returns true if the function is void */
+    public boolean functionIsVoid(int id) {
+        for (Function f : functions) {
+            if (f.getFunctionId() == id) {
+                return f.isVoid();
+            }
+        }
+        return false;
     }
 
     // ---------- any IR method calls in Parser.java is called on the current IR ---------- //

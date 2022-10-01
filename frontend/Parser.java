@@ -3,6 +3,7 @@ package frontend;
 import IR.BasicBlock.BasicBlock;
 import IR.Instruction.Instruction;
 import IR.Instruction.BinaryInstr;
+import IR.Instruction.MjuInstr;
 import IR.Instruction.UnaryInstr;
 import IR.SSAIR.GlobalSSAIR;
 import errors.TinySyntaxError;
@@ -212,10 +213,17 @@ public class Parser {
             return toAdd;
         }
         else {
-            // user defined functions, check for non-void
-            // checkNonVoid()
-            // return functionCall(). have functionCall() return Instruction, voidFunctionCall can just not use it.
-            return null;
+            if (!GlobalIR.functionIsVoid(funcName.getIdValue())) {
+                // return functionCall(). have functionCall() return Instruction, voidFunctionCall can just not use it.
+                // mju instr for return value
+                Instruction res = functionCall(funcName);
+                GlobalIR.insertInstrToCurrentBlock(new MjuInstr(res, 30));
+                return res;
+            }
+            else {
+                error("Invalid function call, expected non-void function call.");
+                return null;
+            }
         }
     }
 
@@ -246,25 +254,31 @@ public class Parser {
         }
     }
 
-    public void functionCall(Token funcName) {
+    public Instruction functionCall(Token funcName) {
         System.out.println("function call");
-        // GlobalIR.functionCall()...
+        Instruction arg;
+
+        int rgId = 0;
         if (checkIfTokenIs(peek(), "(")) {
             next();         // consumes "("
             if (!checkIfTokenIs(peek(), ")")) {
-                expression();
+                arg = expression();
+                GlobalIR.insertInstrToCurrentBlock(new MjuInstr(arg, ++rgId));
                 while (checkIfTokenIs(peek(), ",")) {
                     next();
-                    expression();
+                    arg = expression();
+                    GlobalIR.insertInstrToCurrentBlock(new MjuInstr(arg, ++rgId));
                 }
             }
             next();         // consumes ")"
-            // GlobalIR.callFunction();
+            return GlobalIR.callCurrentFunction(funcName.getIdValue(), lexer.getIdentifierName(funcName.getIdValue()));
         } else {
             if (!functionHasNoParams(funcName)) {       // error if function has parameters but no arguments
                 error("invalid function call, function called with no arguments");
+                return null;
             } else {
-                // call function
+                // call function w no arguments
+                return GlobalIR.callCurrentFunction(funcName.getIdValue(), lexer.getIdentifierName(funcName.getIdValue()));
             }
         }
     }
@@ -324,6 +338,8 @@ public class Parser {
         if (peek.isUserDefinedIdentifier() || peek.isLiteral() ||
                 checkIfTokenIs(peek, "(") || checkIfTokenIs(peek, "call")) {
             Instruction res = expression();
+            UnaryInstr ret = new UnaryInstr(Instruction.Op.RET, res);
+            GlobalIR.insertInstrToCurrentBlock(ret);
         }
     }
 
@@ -511,7 +527,7 @@ public class Parser {
     // ------------------------------- MAIN -------------------------------- //
 
     public static void main(String[] args) {
-        Lexer lexer = new Lexer("tests/Function/simple.tiny");
+        Lexer lexer = new Lexer("tests/peers/test99.tiny");
         Parser parser = new Parser(lexer);
         parser.parse();
     }

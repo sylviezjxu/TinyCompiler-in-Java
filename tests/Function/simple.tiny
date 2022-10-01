@@ -27,6 +27,7 @@ var a, b;
     fi;
     let a <- a + 1;
     call myFunc1(1, 3);
+    call myFunc2;
 
 	call OutputNum(a + b);
 	call OutputNum(b);

@@ -10,4 +10,8 @@ public class MjuInstr extends Instruction {
         this.arg = arg;
         this.registerId = registerId;
     }
+
+    public String toString() {
+        return String.format("%s (%d) #R%d", super.toString(), arg.getId(), registerId);
+    }
 }

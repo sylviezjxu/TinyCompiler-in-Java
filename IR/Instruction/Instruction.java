@@ -16,7 +16,7 @@ public class Instruction
         BLE, BLT, BGE, BGT,
         READ, WRITE, WRITENL,
         BRANCH_TO, CALL,
-        REG
+        REG, RET
     }
 
     public Instruction(Op opType) {
@@ -53,13 +53,13 @@ public class Instruction
     }
 
     public boolean isBinary() {
-        return isAddSubDivMul() || opType == Op.CMP || opType == Op.STORE || opType == Op.PHI || opType == Op.MJU;
+        return isAddSubDivMul() || opType == Op.CMP || opType == Op.STORE || opType == Op.PHI;
     }
 
     public boolean isUnary() {
         return opType == Op.NEG || opType == Op.LOAD || opType == Op.BRA || opType == Op.BNE ||
                 opType == Op.BEQ || opType == Op.BLE || opType == Op.BLT || opType == Op.BGE ||
-                opType == Op.BGT || opType == Op.WRITE;
+                opType == Op.BGT || opType == Op.WRITE || opType == Op.RET;
     }
 
     public boolean isAddSubDivMul() {

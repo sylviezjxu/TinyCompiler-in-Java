@@ -7,7 +7,7 @@ import java.util.List;
 
 public class Function {
 
-    private int functionIdent;          // id of function identifier token
+    private int functionId;          // id of function identifier token
     private boolean isVoid;             // true if function is void. Default is false.
     private List<Integer> params;       // list of identifier id of parameters
     private final SSAIR cfg;            // control flow graph of this function
@@ -18,12 +18,12 @@ public class Function {
         this.cfg = cfg;
     }
 
-    public int getFunctionIdent() {
-        return functionIdent;
+    public int getFunctionId() {
+        return functionId;
     }
 
-    public void setFunctionIdent(int functionIdent) {
-        this.functionIdent = functionIdent;
+    public void setFunctionId(int functionId) {
+        this.functionId = functionId;
     }
 
     public boolean isVoid() {
